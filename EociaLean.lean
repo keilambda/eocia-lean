@@ -1,0 +1,1 @@
+import «EociaLean».Interpreter.Lint
