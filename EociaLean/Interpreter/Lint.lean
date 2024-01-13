@@ -11,7 +11,7 @@ structure Program (info : Type) := exp : (Exp Int)
 
 def leaf? : Exp Int -> Prop
 | IntE _ => True
-| Read => False
+| Read => True
 | Negate _ => False
 | Plus _ _ => False
 | Minus _ _ => False
