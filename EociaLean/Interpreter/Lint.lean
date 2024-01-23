@@ -7,7 +7,8 @@ inductive Exp : Type → Type where
 
 open Exp
 
-structure Program (info : Type) := exp : (Exp Int)
+structure Program where
+  mk :: (info : α) (exp : Exp Int)
 
 def leaf? : Exp Int → Prop
 | IntE _ => True
@@ -23,8 +24,8 @@ def exp? : Exp Int → Prop
 | Plus e1 e2 => exp? e1 ∧ exp? e2
 | Minus e1 e2 => exp? e1 ∧ exp? e2
 
-def Lint? : Program info → Prop
-| {exp} => exp? exp
+def Lint? : Program → Prop
+| ⟨_, exp⟩ => exp? exp
 
 def interpExp : Exp Int → IO Int
 | IntE i => pure i
@@ -39,8 +40,8 @@ def interpExp : Exp Int → IO Int
   let b ← interpExp b
   pure $ a + b
 
-def interpLint : Program info → IO Int
-| {exp} => interpExp exp
+def interpLint : Program → IO Int
+| ⟨_, exp⟩ => interpExp exp
 
 def peNegate : Exp Int → Exp Int
 | IntE i => IntE (-i)
@@ -61,5 +62,5 @@ def peExp : Exp Int → Exp Int
 | Minus a b => peMinus a b
 | Plus a b => pePlus a b
 
-def peLint : Program info → Program info
-| {exp} => {exp := peExp exp}
+def peLint : Program → Program
+| ⟨i, exp⟩ => ⟨i, peExp exp⟩
