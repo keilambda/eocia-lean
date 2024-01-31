@@ -1,66 +1,74 @@
-inductive Exp : Type → Type where
-| IntE : Int → Exp IntE
-| Read : Exp IntE
-| Negate : Exp IntE → Exp IntE
-| Minus : Exp IntE → Exp IntE → Exp IntE
-| Plus : Exp IntE → Exp IntE → Exp IntE
+-- AST
+mutual
+inductive Exp : Type
+| int : Int → Exp
+| op : Op → Exp
+deriving Repr
 
-open Exp
+inductive Op : Type
+| read : Op
+| add : Exp -> Exp -> Op
+| sub : Exp -> Exp -> Op
+| neg : Exp -> Op
+deriving Repr
+end
 
 structure Program where
-  mk :: (info : α) (exp : Exp Int)
+  mk :: (info : α) (exp : Exp)
 
-def leaf? : Exp Int → Prop
-| IntE _ => True
-| Read => True
-| Negate _ => False
-| Plus _ _ => False
-| Minus _ _ => False
+open Exp Op
 
-def exp? : Exp Int → Prop
-| IntE _ => True
-| Read => True
-| Negate e => exp? e
-| Plus e1 e2 => exp? e1 ∧ exp? e2
-| Minus e1 e2 => exp? e1 ∧ exp? e2
+def leaf? : Exp → Prop
+| int _ => True
+| op Op.read => True
+| op (add _ _) => False
+| op (sub _ _) => False
+| op (neg _) => False
+
+def exp? : Exp → Prop
+| int _ => True
+| op Op.read => True
+| op (add a b) => exp? a ∧ exp? b
+| op (sub a b) => exp? a ∧ exp? b
+| op (neg a) => exp? a
 
 def Lint? : Program → Prop
 | ⟨_, exp⟩ => exp? exp
 
-def interpExp : Exp Int → IO Int
-| IntE i => pure i
-| Read => String.toInt! <$> (IO.getStdin >>= IO.FS.Stream.getLine)
-| Negate i => Int.neg <$> interpExp i
-| Minus a b => do
-  let a ← interpExp a
-  let b ← interpExp b
-  pure $ a - b
-| Plus a b => do
+def interpExp : Exp → IO Int
+| int i => pure i
+| op Op.read => String.toInt! <$> (IO.getStdin >>= IO.FS.Stream.getLine)
+| op (add a b) => do
   let a ← interpExp a
   let b ← interpExp b
   pure $ a + b
+| op (sub a b) => do
+  let a ← interpExp a
+  let b ← interpExp b
+  pure $ a - b
+| op (neg i) => Int.neg <$> interpExp i
 
 def interpLint : Program → IO Int
 | ⟨_, exp⟩ => interpExp exp
 
-def peNegate : Exp Int → Exp Int
-| IntE i => IntE (-i)
-| other => Negate other
+def peAdd : Exp → Exp → Exp
+| int a, int b => int (a + b)
+| a, b => op $ add a b
 
-def peMinus : Exp Int → Exp Int → Exp Int
-| IntE a, IntE b => IntE (a - b)
-| a, b => Minus a b
+def peSub : Exp → Exp → Exp
+| int a, int b => int (a - b)
+| a, b => op $ sub a b
 
-def pePlus : Exp Int → Exp Int → Exp Int
-| IntE a, IntE b => IntE (a + b)
-| a, b => Plus a b
+def peNeg : Exp → Exp
+| int i => int (-i)
+| other => op $ neg other
 
-def peExp : Exp Int → Exp Int
-| IntE a => IntE a
-| Read => Read
-| Negate a => peNegate a
-| Minus a b => peMinus a b
-| Plus a b => pePlus a b
+def peExp : Exp → Exp
+| int a => int a
+| op Op.read => op $ Op.read
+| op (add a b) => peAdd a b
+| op (sub a b) => peSub a b
+| op (neg a) => peNeg a
 
 def peLint : Program → Program
 | ⟨i, exp⟩ => ⟨i, peExp exp⟩
