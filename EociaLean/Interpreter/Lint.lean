@@ -7,9 +7,9 @@ deriving Repr
 
 inductive Op : Type
 | read : Op
-| add : Exp -> Exp -> Op
-| sub : Exp -> Exp -> Op
-| neg : Exp -> Op
+| add : Exp → Exp → Op
+| sub : Exp → Exp → Op
+| neg : Exp → Op
 deriving Repr
 end
 
