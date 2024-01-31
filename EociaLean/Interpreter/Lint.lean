@@ -38,14 +38,8 @@ def Lint? : Program → Prop
 def interpExp : Exp → IO Int
 | int i => pure i
 | op Op.read => String.toInt! <$> (IO.getStdin >>= IO.FS.Stream.getLine)
-| op (add a b) => do
-  let a ← interpExp a
-  let b ← interpExp b
-  pure $ a + b
-| op (sub a b) => do
-  let a ← interpExp a
-  let b ← interpExp b
-  pure $ a - b
+| op (add a b) => Int.add <$> (interpExp a) <*> (interpExp b)
+| op (sub a b) => Int.sub <$> (interpExp a) <*> (interpExp b)
 | op (neg i) => Int.neg <$> interpExp i
 
 def interpLint : Program → IO Int
@@ -60,7 +54,7 @@ def peSub : Exp → Exp → Exp
 | a, b => op $ sub a b
 
 def peNeg : Exp → Exp
-| int i => int (-i)
+| int i => int (Int.neg i)
 | other => op $ neg other
 
 def peExp : Exp → Exp
