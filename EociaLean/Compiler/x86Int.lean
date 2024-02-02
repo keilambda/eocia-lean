@@ -28,16 +28,20 @@ instance : ToString Reg where
 inductive Arg : Type
 | imm : Int → Arg
 | reg : Reg → Arg
-| deref : Reg → Int → Arg
+| deref : Arg → Arg → Arg
 deriving Repr
 
 open Arg
 
+def Arg.toString : Arg → String
+| imm i => ToString.toString i
+| reg r => ToString.toString r
+| deref a b => s!"{toString b}({toString a})"
+
 instance : ToString Arg where
-  toString
-  | imm i => s!"${toString i}"
-  | reg r => toString r
-  | deref r i => s!"{toString i}({toString r})"
+  toString := Arg.toString
+
+abbrev Label : Type := String
 
 inductive Instr : Type
 | addq : Arg → Arg → Instr
@@ -46,22 +50,22 @@ inductive Instr : Type
 | movq : Arg → Arg → Instr
 | pushq : Arg → Instr
 | popq : Arg → Instr
-| callq : String → Int → Instr
+| callq : Label → Int → Instr
 | retq : Instr
-| jmp : String → Instr
+| jmp : Label → Instr
 deriving Repr
 
 open Instr
 
 instance : ToString Instr where
   toString
-  | addq s d => s!"addq {toString s}, {toString d}"
-  | subq s d => s!"subq {toString s}, {toString d}"
-  | negq d => s!"negq {toString d}"
-  | movq s d => s!"movq {toString s}, {toString d}"
-  | pushq d => s!"pushq {toString d}"
-  | popq d => s!"popq {toString d}"
-  | callq lbl d => s!"callq {lbl}, {toString d}"
+  | addq s d => s!"addq {s}, {d}"
+  | subq s d => s!"subq {s}, {d}"
+  | negq d => s!"negq {d}"
+  | movq s d => s!"movq {s}, {d}"
+  | pushq d => s!"pushq {d}"
+  | popq d => s!"popq {d}"
+  | callq lbl d => s!"callq {lbl}, {d}"
   | retq => "retq"
   | jmp lbl => s!"jmp {lbl}"
 
@@ -71,13 +75,13 @@ structure Block : Type where
   mk :: (env : Env) (instructions : List Instr)
 
 instance : ToString Block where
-  toString b := b.instructions.foldl (λ acc i => s!"{acc}\t{toString i}\n") default
+  toString b := b.instructions.foldl (λ acc i => s!"{acc}\t{i}\n") default
 
 structure x86Int : Type where
-  mk :: (env : Env) (globl : String) (blocks : Lean.HashMap String Block)
+  mk :: (env : Env) (globl : Label) (blocks : Lean.HashMap Label Block)
 
 instance : ToString x86Int where
   toString p := s!".globl {p.globl}\n{p.blocks.fold labelWithBlock default}"
   where
-  labelWithBlock (acc : String) (lbl : String) (block : Block) : String :=
-    s!"{acc}{lbl}:\n{toString block}"
+  labelWithBlock (acc : String) (lbl : Label) (block : Block) : String :=
+    s!"{acc}{lbl}:\n{block}"
