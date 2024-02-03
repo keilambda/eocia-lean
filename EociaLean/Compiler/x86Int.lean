@@ -33,13 +33,13 @@ deriving Repr
 
 open Arg
 
+def Arg.toString' : Arg → String
+| imm i => toString i
+| reg r => toString r
+| deref a b => s!"{toString' a}({toString' b})"
+
 instance : ToString Arg where
-  toString := argToString
-  where
-  argToString : Arg → String
-  | imm i => toString i
-  | reg r => toString r
-  | deref a b => s!"{argToString a}({argToString b})"
+  toString := Arg.toString'
 
 abbrev Label : Type := String
 
