@@ -1,15 +1,16 @@
-import Lean.Data.HashMap
+import Std.Data.RBMap
+import EociaLean.Basic
 
 namespace LVar
 
-abbrev Env := Lean.HashMap String Int
+abbrev Env := Std.RBMap Var Int compare
 
 -- AST
 mutual
 inductive Exp : Type
 | int : Int → Exp
-| var : String → Exp
-| let_ : String → Exp → Exp → Exp
+| var : Var → Exp
+| let_ : Var → Exp → Exp → Exp
 | op : Op → Exp
 deriving Repr
 

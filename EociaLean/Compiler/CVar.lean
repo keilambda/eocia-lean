@@ -1,10 +1,11 @@
-import Lean.Data.HashMap
+import Std.Data.RBMap
+import EociaLean.Basic
 
 namespace CVar
 
 inductive Atom : Type
 | int : Int → Atom
-| var : String → Atom
+| var : Var → Atom
 deriving Repr
 
 inductive Op : Type
@@ -20,7 +21,7 @@ inductive Exp : Type
 deriving Repr
 
 inductive Stmt : Type
-| assign : String → Exp → Stmt
+| assign : Var → Exp → Stmt
 deriving Repr
 
 inductive Tail : Type
@@ -28,9 +29,9 @@ inductive Tail : Type
 | seq : Stmt → Tail → Tail
 deriving Repr
 
-abbrev Env : Type := Lean.HashMap String Int
+abbrev Env : Type := Std.RBMap Var Int compare
 
 structure CVar : Type where
-  mk :: (env : Env) (blocks : Lean.HashMap String Tail)
+  mk :: (env : Env) (blocks : Std.RBMap Label Tail compare)
 
 end CVar

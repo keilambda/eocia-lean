@@ -1,4 +1,5 @@
-import Lean.Data.HashMap
+import Std.Data.RBMap
+import EociaLean.Basic
 
 namespace x86Int
 
@@ -43,8 +44,6 @@ def Arg.toString' : Arg → String
 instance : ToString Arg where
   toString := Arg.toString'
 
-abbrev Label : Type := String
-
 inductive Instr : Type
 | addq : Arg → Arg → Instr
 | subq : Arg → Arg → Instr
@@ -71,7 +70,7 @@ instance : ToString Instr where
   | retq => "retq"
   | jmp lbl => s!"jmp {lbl}"
 
-abbrev Env : Type := Lean.HashMap String Int
+abbrev Env : Type := Std.RBMap Var Int compare
 
 structure Block : Type where
   mk :: (env : Env) (instructions : List Instr)
@@ -80,10 +79,10 @@ instance : ToString Block where
   toString b := b.instructions.foldl (λ acc i => s!"{acc}\t{i}\n") default
 
 structure x86Int : Type where
-  mk :: (env : Env) (globl : Label) (blocks : Lean.HashMap Label Block)
+  mk :: (env : Env) (globl : Label) (blocks : Std.RBMap Label Block compare)
 
 instance : ToString x86Int where
-  toString p := s!".globl {p.globl}\n{p.blocks.fold labelWithBlock default}"
+  toString p := s!".globl {p.globl}\n{p.blocks.foldl labelWithBlock default}"
   where
   labelWithBlock (acc : String) (lbl : Label) (block : Block) : String :=
     s!"{acc}{lbl}:\n{block}"
