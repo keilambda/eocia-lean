@@ -1,7 +1,15 @@
+import Lean.Data.HashMap
+
+namespace LVar
+
+abbrev Env := Lean.HashMap String Int
+
 -- AST
 mutual
 inductive Exp : Type
 | int : Int → Exp
+| var : String → Exp
+| let_ : String → Exp → Exp → Exp
 | op : Op → Exp
 deriving Repr
 
@@ -20,6 +28,8 @@ open Exp Op
 
 def leaf? : Exp → Prop
 | int _ => True
+| var _ => True
+| let_ _ _ _ => False
 | op Op.read => True
 | op (add _ _) => False
 | op (sub _ _) => False
@@ -27,6 +37,8 @@ def leaf? : Exp → Prop
 
 def exp? : Exp → Prop
 | int _ => True
+| var _ => True
+| let_ _ a b => leaf? a ∧ exp? b
 | op Op.read => True
 | op (add a b) => exp? a ∧ exp? b
 | op (sub a b) => exp? a ∧ exp? b
@@ -35,15 +47,19 @@ def exp? : Exp → Prop
 def Lint? : Program → Prop
 | ⟨_, exp⟩ => exp? exp
 
-def interpExp : Exp → IO Int
+def interpExp (env : Env) : Exp → IO Int
 | int i => pure i
+| var name => match env.find? name with
+  | some i => pure i
+  | none => throw ∘ IO.userError $ "unbound variable: " ++ name
+| let_ name lhs body => (interpExp env lhs) >>= λ val => interpExp (env.insert name val) body
 | op Op.read => String.toInt! <$> (IO.getStdin >>= IO.FS.Stream.getLine)
-| op (add a b) => Int.add <$> (interpExp a) <*> (interpExp b)
-| op (sub a b) => Int.sub <$> (interpExp a) <*> (interpExp b)
-| op (neg i) => Int.neg <$> interpExp i
+| op (add a b) => Int.add <$> (interpExp env a) <*> (interpExp env b)
+| op (sub a b) => Int.sub <$> (interpExp env a) <*> (interpExp env b)
+| op (neg i) => Int.neg <$> interpExp env i
 
 def interpLint : Program → IO Int
-| ⟨_, exp⟩ => interpExp exp
+| ⟨env, exp⟩ => interpExp env exp
 
 def peAdd : Exp → Exp → Exp
 | int a, int b => int (a + b)
@@ -57,12 +73,18 @@ def peNeg : Exp → Exp
 | int i => int (Int.neg i)
 | other => op $ neg other
 
-def peExp : Exp → Exp
-| int a => int a
-| op Op.read => op $ Op.read
+def peExp (env : Env) : Exp → Exp
+| exp@(int _) => exp
+| var name => match env.find? name with
+  | some i => int i
+  | none => var name
+| exp@(let_ _ _ _) => exp
+| exp@(op Op.read) => exp
 | op (add a b) => peAdd a b
 | op (sub a b) => peSub a b
 | op (neg a) => peNeg a
 
 def peLint : Program → Program
-| ⟨i, exp⟩ => ⟨i, peExp exp⟩
+| ⟨env, exp⟩ => ⟨env, peExp env exp⟩
+
+end LVar

@@ -1,5 +1,7 @@
 import Lean.Data.HashMap
 
+namespace x86Int
+
 inductive Reg : Type
 | rsp | rbp | rax | rbx | rcx | rdx | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
 deriving Repr
@@ -85,3 +87,5 @@ instance : ToString x86Int where
   where
   labelWithBlock (acc : String) (lbl : Label) (block : Block) : String :=
     s!"{acc}{lbl}:\n{block}"
+
+end x86Int

@@ -1,5 +1,7 @@
 import Lean.Data.HashMap
 
+namespace CVar
+
 inductive Atom : Type
 | int : Int → Atom
 | var : String → Atom
@@ -26,7 +28,9 @@ inductive Tail : Type
 | seq : Stmt → Tail → Tail
 deriving Repr
 
-abbrev Env := Lean.HashMap String Int
+abbrev Env : Type := Lean.HashMap String Int
 
 structure CVar : Type where
   mk :: (env : Env) (blocks : Lean.HashMap String Tail)
+
+end CVar
