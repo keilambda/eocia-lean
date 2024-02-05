@@ -3,8 +3,6 @@ import EociaLean.Basic
 
 namespace LVar
 
-abbrev Env := Std.RBMap Var Int compare
-
 -- AST
 mutual
 inductive Exp : Type
@@ -22,8 +20,10 @@ inductive Op : Type
 deriving Repr
 end
 
+abbrev Env : Type := Std.RBMap Var Exp compare
+
 structure Program where
-  mk :: (info : α) (exp : Exp)
+  mk :: (info : Env) (exp : Exp)
 
 open Exp Op
 
@@ -48,12 +48,12 @@ def exp? : Exp → Prop
 def Lint? : Program → Prop
 | ⟨_, exp⟩ => exp? exp
 
-def interpExp (env : Env) : Exp → IO Int
+partial def interpExp (env : Env) : Exp → IO Int
 | int i => pure i
 | var name => match env.find? name with
-  | some i => pure i
+  | some i => interpExp env i
   | none => throw ∘ IO.userError $ "unbound variable: " ++ name
-| let_ name lhs body => (interpExp env lhs) >>= λ val => interpExp (env.insert name val) body
+| let_ name val body => interpExp (env.insert name val) body
 | op Op.read => String.toInt! <$> (IO.getStdin >>= IO.FS.Stream.getLine)
 | op (add a b) => Int.add <$> (interpExp env a) <*> (interpExp env b)
 | op (sub a b) => Int.sub <$> (interpExp env a) <*> (interpExp env b)
@@ -77,7 +77,7 @@ def peNeg : Exp → Exp
 def peExp (env : Env) : Exp → Exp
 | exp@(int _) => exp
 | var name => match env.find? name with
-  | some i => int i
+  | some i => i
   | none => var name
 | exp@(let_ _ _ _) => exp
 | exp@(op Op.read) => exp

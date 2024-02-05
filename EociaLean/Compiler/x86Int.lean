@@ -1,5 +1,6 @@
 import Std.Data.RBMap
 import EociaLean.Basic
+import EociaLean.Interpreter.LVar
 
 namespace x86Int
 
@@ -88,3 +89,50 @@ instance : ToString x86Int where
     s!"{acc}{lbl}:\n{block}"
 
 end x86Int
+
+inductive Error : Type
+| unboundVar : Var → Error
+deriving Repr
+
+instance : ToString Error where
+  toString
+  | (Error.unboundVar v) => s!"Unbound variable: '{v}'"
+
+section
+
+open LVar Exp Op
+
+abbrev ExpEnv : Type := Std.RBMap Var Exp compare
+
+def rebind (old new : Var) : Exp → Exp
+| v@(var name) => if name == old then var new else v
+| let_ name val body => let_ (if name == old then new else name) (rebind old new val) (rebind old new body)
+| i@(int _) => i
+| o@(op Op.read) => o
+| op (add a b) => op (add (rebind old new a) (rebind old new b))
+| op (sub a b) => op (sub (rebind old new a) (rebind old new b))
+| op (neg a) => op (neg (rebind old new a))
+
+def uniquifyExp : Exp → EStateM Error (ExpEnv × Nat) Exp
+| e@(int _) => pure e
+| var name => get >>= λ (env, _) => match env.find? name with
+  | some e => pure e
+  | none => throw (Error.unboundVar name)
+| let_ name val body => do -- not complete: can't increment the counter
+  let (_, n) ← getModify λ (env, n) => (env, n + 1)
+  let name' := s!"{name}.{n}"
+  let val' ← uniquifyExp val
+  modify λ (env, m) => (env.insert name' val' |>.erase name, m)
+  let body' := rebind name name' body
+  pure (let_ name' val' body')
+| e@(op Op.read) => pure e
+| op (add a b) => op <$> (add <$> uniquifyExp a <*> uniquifyExp b)
+| op (sub a b) => op <$> (sub <$> uniquifyExp a <*> uniquifyExp b)
+| op (neg a) => op <$> (neg <$> uniquifyExp a)
+
+def uniquify : Program → Except Error Program
+| ⟨env, exp⟩ => match uniquifyExp exp |>.run (env, 0) with
+  | .ok exp' (env', _) => pure ⟨env', exp'⟩
+  | .error e _ => throw e
+
+end
