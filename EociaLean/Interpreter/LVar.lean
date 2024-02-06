@@ -10,7 +10,7 @@ inductive Exp : Type
 | var : Var → Exp
 | let_ : Var → Exp → Exp → Exp
 | op : Op → Exp
-deriving Repr
+deriving Repr, DecidableEq
 
 inductive Op : Type
 | read : Op
@@ -82,6 +82,8 @@ def evaluate (exp : Exp) (env : Env) : Exp := match exp with
 | op (sub a b) => peSub a b
 | op (neg a) => peNeg a
 
+/-- `rebind` traverses `exp` and rebinds each occurrence of the `old` binding (both `Exp.var` and
+`Exp.let_`) to `new`. -/
 def rebind (exp : Exp) (old new : Var) : Exp := match exp with
 | i@(int _) => i
 | v@(var name) => if name == old then var new else v
@@ -91,6 +93,8 @@ def rebind (exp : Exp) (old new : Var) : Exp := match exp with
 | op (sub lhs rhs) => op $ sub (lhs.rebind old new) (rhs.rebind old new)
 | op (neg e) => op $ neg (e.rebind old new)
 
+/-- `uniquify` traverses `exp` and returns a new `Exp` with all variable names made unique.
+It keeps track of the environment and the number of unique variables generated. -/
 partial def uniquify : Exp → StateM (Env × Nat) Exp
 | let_ name val body => do
   let name' ← getModify (·.map id Nat.succ) <&> (λ (_, n) => s!"{name}.{n}") -- poor man's `gensym`
@@ -106,18 +110,12 @@ partial def uniquify : Exp → StateM (Env × Nat) Exp
 | op (neg e) => (op ∘ neg) <$> e.uniquify
 
 #eval
-  (let_ "x" (int 1) (let_ "y" (int 2) (op (add (var "x") (var "y")))))
-  |>.uniquify
-  |>.run' default
-  |>.run
-  |> toString
+  ((let_  "x"   (int 1) (let_ "y"   (int 2) (op (add (var "x")   (var "y"))))) |>.uniquify |>.run' default |>.run)
+  = (let_ "x.0" (int 1) (let_ "y.1" (int 2) (op (add (var "x.0") (var "y.1")))))
 
 #eval
-  (let_ "x" (int 32) (op $ add (let_ "x" (int 10) (var "x")) (var "x")))
-  |>.uniquify
-  |>.run' default
-  |>.run
-  |> toString
+  ((let_  "x"   (int 32) (op (add (let_ "x"     (int 10) (var "x"))     (var "x")))) |>.uniquify |>.run' default |>.run)
+  = (let_ "x.0" (int 32) (op (add (let_ "x.0.1" (int 10) (var "x.0.1")) (var "x.0"))))
 
 end Exp
 
