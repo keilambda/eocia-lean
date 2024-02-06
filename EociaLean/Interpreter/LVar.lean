@@ -144,7 +144,7 @@ structure Program where
 
 namespace Program
 
-def LInt? : Program → Prop
+def LVar? : Program → Prop
 | ⟨_, exp⟩ => exp.exp?
 
 def interpret : Program → IO Int
