@@ -113,26 +113,23 @@ def rebind (old new : Var) : Exp → Exp
 | op (sub a b) => op (sub (rebind old new a) (rebind old new b))
 | op (neg a) => op (neg (rebind old new a))
 
-def uniquifyExp : Exp → EStateM Error (ExpEnv × Nat) Exp
+partial def uniquifyExp : Exp → StateM (ExpEnv × Nat) Exp
 | e@(int _) => pure e
-| var name => get >>= λ (env, _) => match env.find? name with
-  | some e => pure e
-  | none => throw (Error.unboundVar name)
-| let_ name val body => do -- not complete: can't increment the counter
-  let (_, n) ← getModify λ (env, n) => (env, n + 1)
-  let name' := s!"{name}.{n}"
-  let val' ← uniquifyExp val
-  modify λ (env, m) => (env.insert name' val' |>.erase name, m)
-  let body' := rebind name name' body
+| v@(var _) => pure v
+| let_ name val body => do
+  let name' ← (λ (_, n) => s!"{name}.{n}") <$> getModify (·.map id Nat.succ) -- poor man's `gensym`
+  let val' ← uniquifyExp ∘ rebind name name' $ val
+  let body' ← uniquifyExp ∘ rebind name name' $ body
+  modify (·.map (λ env => env.insert name' val' |>.erase name) id)
   pure (let_ name' val' body')
 | e@(op Op.read) => pure e
 | op (add a b) => op <$> (add <$> uniquifyExp a <*> uniquifyExp b)
 | op (sub a b) => op <$> (sub <$> uniquifyExp a <*> uniquifyExp b)
 | op (neg a) => op <$> (neg <$> uniquifyExp a)
 
-def uniquify : Program → Except Error Program
-| ⟨env, exp⟩ => match uniquifyExp exp |>.run (env, 0) with
-  | .ok exp' (env', _) => pure ⟨env', exp'⟩
-  | .error e _ => throw e
+#eval uniquifyExp (let_ "x" (int 1) (let_ "y" (int 2) (op (add (var "x") (var "y"))))) |>.run default
+
+def uniquify : Program → Program
+| ⟨env, exp⟩ => let (exp', env', _) := uniquifyExp exp |>.run (env, 0) |>.run; ⟨env', exp'⟩
 
 end
