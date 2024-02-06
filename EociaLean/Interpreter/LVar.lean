@@ -48,24 +48,6 @@ end
 namespace Exp
 open Op
 
-def leaf? : Exp → Prop
-| int _ => True
-| var _ => True
-| let_ _ _ _ => False
-| op Op.read => True
-| op (add _ _) => False
-| op (sub _ _) => False
-| op (neg _) => False
-
-def exp? : Exp → Prop
-| int _ => True
-| var _ => True
-| let_ _ a b => leaf? a ∧ exp? b
-| op Op.read => True
-| op (add a b) => exp? a ∧ exp? b
-| op (sub a b) => exp? a ∧ exp? b
-| op (neg a) => exp? a
-
 partial def interpret (exp : Exp) (env : Env) : IO Int := match exp with
 | int i => pure i
 | var name => match env.find? name with
@@ -90,12 +72,12 @@ private def peNeg : Exp → Exp
 | other => op $ neg other
 
 def evaluate (exp : Exp) (env : Env) : Exp := match exp with
-| exp@(int _) => exp
-| var name => match env.find? name with
+| i@(int _) => i
+| v@(var name) => match env.find? name with
   | some i => i
-  | none => var name
-| exp@(let_ _ _ _) => exp
-| exp@(op Op.read) => exp
+  | none => v
+| l@(let_ _ _ _) => l
+| o@(op Op.read) => o
 | op (add a b) => peAdd a b
 | op (sub a b) => peSub a b
 | op (neg a) => peNeg a
@@ -143,9 +125,6 @@ structure Program where
   mk :: (info : Env) (exp : Exp)
 
 namespace Program
-
-def LVar? : Program → Prop
-| ⟨_, exp⟩ => exp.exp?
 
 def interpret : Program → IO Int
 | ⟨env, exp⟩ => exp.interpret env
