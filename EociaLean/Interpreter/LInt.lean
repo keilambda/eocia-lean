@@ -1,4 +1,4 @@
-namespace Lint
+namespace LInt
 
 -- AST
 mutual
@@ -15,10 +15,8 @@ inductive Op : Type
 deriving Repr
 end
 
-structure Program where
-  mk :: (info : α) (exp : Exp)
-
-open Exp Op
+namespace Exp
+open Op
 
 def leaf? : Exp → Prop
 | int _ => True
@@ -30,43 +28,51 @@ def leaf? : Exp → Prop
 def exp? : Exp → Prop
 | int _ => True
 | op Op.read => True
-| op (add a b) => exp? a ∧ exp? b
-| op (sub a b) => exp? a ∧ exp? b
-| op (neg a) => exp? a
+| op (add lhs rhs) => lhs.exp? ∧ rhs.exp?
+| op (sub lhs rhs) => lhs.exp? ∧ rhs.exp?
+| op (neg e) => e.exp?
 
-def Lint? : Program → Prop
-| ⟨_, exp⟩ => exp? exp
-
-def interpExp : Exp → IO Int
+def interpret : Exp → IO Int
 | int i => pure i
-| op Op.read => String.toInt! <$> (IO.getStdin >>= IO.FS.Stream.getLine)
-| op (add a b) => Int.add <$> (interpExp a) <*> (interpExp b)
-| op (sub a b) => Int.sub <$> (interpExp a) <*> (interpExp b)
-| op (neg i) => Int.neg <$> interpExp i
+| op Op.read => String.toInt! <$> (IO.getStdin >>= (·.getLine))
+| op (add lhs rhs) => Int.add <$> lhs.interpret <*> rhs.interpret
+| op (sub lhs rhs) => Int.sub <$> lhs.interpret <*> rhs.interpret
+| op (neg e) => Int.neg <$> e.interpret
 
-def interpLint : Program → IO Int
-| ⟨_, exp⟩ => interpExp exp
-
-def peAdd : Exp → Exp → Exp
+private def peAdd : Exp → Exp → Exp
 | int a, int b => int (a + b)
 | a, b => op $ add a b
 
-def peSub : Exp → Exp → Exp
+private def peSub : Exp → Exp → Exp
 | int a, int b => int (a - b)
 | a, b => op $ sub a b
 
-def peNeg : Exp → Exp
+private def peNeg : Exp → Exp
 | int i => int (Int.neg i)
 | other => op $ neg other
 
-def peExp : Exp → Exp
-| int a => int a
-| op Op.read => op $ Op.read
+def evaluate : Exp → Exp
+| i@(int _) => i
+| o@(op Op.read) => o
 | op (add a b) => peAdd a b
 | op (sub a b) => peSub a b
 | op (neg a) => peNeg a
 
-def peLint : Program → Program
-| ⟨i, exp⟩ => ⟨i, peExp exp⟩
+end Exp
 
-end Lint
+structure Program where
+  mk :: (exp : Exp)
+
+namespace Program
+
+def LInt? : Program → Prop
+| ⟨exp⟩ => exp.exp?
+
+def interpret : Program → IO Int
+| ⟨exp⟩ => exp.interpret
+
+def evaluate : Program → Program
+| ⟨exp⟩ => ⟨exp.evaluate⟩
+
+end Program
+end LInt
