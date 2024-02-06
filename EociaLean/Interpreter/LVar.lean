@@ -23,7 +23,6 @@ end
 abbrev Env : Type := Std.RBMap Var Exp compare
 
 mutual
-
 open Exp Op
 
 def Op.toString' : Op → String
@@ -38,67 +37,16 @@ def Exp.toString' : Exp → String
 | let_ name val body => s!"(let ([{name} {val.toString'}]) {body.toString'})"
 | op o => o.toString'
 
-end
-
 instance : ToString Exp where
   toString := Exp.toString'
 
 instance : ToString Op where
   toString := Op.toString'
 
+end
+
 namespace Exp
-
 open Op
-
-def rebind (exp : Exp) (old new : Var) : Exp := match exp with
-| i@(int _) => i
-| v@(var name) => if name == old then var new else v
-| let_ name val body => let_ (if name == old then new else name) (val.rebind old new) (body.rebind old new)
-| o@(op Op.read) => o
-| op (add lhs rhs) => op $ add (lhs.rebind old new) (rhs.rebind old new)
-| op (sub lhs rhs) => op $ sub (lhs.rebind old new) (rhs.rebind old new)
-| op (neg e) => op $ neg (e.rebind old new)
-
-partial def uniquify : Exp → StateM (Env × Nat) Exp
-| e@(int _) => pure e
-| v@(var _) => pure v
-| let_ name val body => do
-  let name' ← getModify (·.map id Nat.succ) <&> (λ (_, n) => s!"{name}.{n}") -- poor man's `gensym`
-  let val' ← val.rebind name name' |>.uniquify
-  let body' ← body.rebind name name' |>.uniquify
-  modify (·.map (λ env => env.erase name |>.insert name' val') id)
-  pure (let_ name' val' body')
-| e@(op Op.read) => pure e
-| op (add lhs rhs) => op <$> (add <$> lhs.uniquify <*> rhs.uniquify)
-| op (sub lhs rhs) => op <$> (sub <$> lhs.uniquify <*> rhs.uniquify)
-| op (neg e) => (op ∘ neg) <$> e.uniquify
-
-#eval
-  (let_ "x" (int 1) (let_ "y" (int 2) (op (add (var "x") (var "y")))))
-  |>.uniquify
-  |>.run' default
-  |>.run
-  |> toString
-#eval
-  (let_ "x" (int 32) (op $ add (let_ "x" (int 10) (var "x")) (var "x")))
-  |>.uniquify
-  |>.run' default
-  |>.run
-  |> toString
-
-end Exp
-
-open Exp Op
-
-structure Program where
-  mk :: (info : Env) (exp : Exp)
-
-namespace Program
-
-def uniquify : Program → Program
-| ⟨env, exp⟩ => let (exp', env', _) := exp.uniquify |>.run (env, 0) |>.run; ⟨env', exp'⟩
-
-end Program
 
 def leaf? : Exp → Prop
 | int _ => True
@@ -118,36 +66,30 @@ def exp? : Exp → Prop
 | op (sub a b) => exp? a ∧ exp? b
 | op (neg a) => exp? a
 
-def Lint? : Program → Prop
-| ⟨_, exp⟩ => exp? exp
-
-partial def interpExp (env : Env) : Exp → IO Int
+partial def interpret (exp : Exp) (env : Env) : IO Int := match exp with
 | int i => pure i
 | var name => match env.find? name with
-  | some i => interpExp env i
+  | some e => e.interpret env
   | none => throw ∘ IO.userError $ "unbound variable: " ++ name
-| let_ name val body => interpExp (env.insert name val) body
-| op Op.read => String.toInt! <$> (IO.getStdin >>= IO.FS.Stream.getLine)
-| op (add a b) => Int.add <$> (interpExp env a) <*> (interpExp env b)
-| op (sub a b) => Int.sub <$> (interpExp env a) <*> (interpExp env b)
-| op (neg i) => Int.neg <$> interpExp env i
+| let_ name val body => body.interpret (env.insert name val)
+| op Op.read => String.toInt! <$> (IO.getStdin >>= (·.getLine))
+| op (add lhs rhs) => Int.add <$> lhs.interpret env <*> rhs.interpret env
+| op (sub lhs rhs) => Int.sub <$> lhs.interpret env <*> rhs.interpret env
+| op (neg e) => Int.neg <$> e.interpret env
 
-def interpLint : Program → IO Int
-| ⟨env, exp⟩ => interpExp env exp
-
-def peAdd : Exp → Exp → Exp
+private def peAdd : Exp → Exp → Exp
 | int a, int b => int (a + b)
 | a, b => op $ add a b
 
-def peSub : Exp → Exp → Exp
+private def peSub : Exp → Exp → Exp
 | int a, int b => int (a - b)
 | a, b => op $ sub a b
 
-def peNeg : Exp → Exp
+private def peNeg : Exp → Exp
 | int i => int (Int.neg i)
 | other => op $ neg other
 
-def peExp (env : Env) : Exp → Exp
+def evaluate (exp : Exp) (env : Env) : Exp := match exp with
 | exp@(int _) => exp
 | var name => match env.find? name with
   | some i => i
@@ -158,7 +100,61 @@ def peExp (env : Env) : Exp → Exp
 | op (sub a b) => peSub a b
 | op (neg a) => peNeg a
 
-def peLint : Program → Program
-| ⟨env, exp⟩ => ⟨env, peExp env exp⟩
+def rebind (exp : Exp) (old new : Var) : Exp := match exp with
+| i@(int _) => i
+| v@(var name) => if name == old then var new else v
+| let_ name val body => let_ (if name == old then new else name) (val.rebind old new) (body.rebind old new)
+| o@(op Op.read) => o
+| op (add lhs rhs) => op $ add (lhs.rebind old new) (rhs.rebind old new)
+| op (sub lhs rhs) => op $ sub (lhs.rebind old new) (rhs.rebind old new)
+| op (neg e) => op $ neg (e.rebind old new)
 
+partial def uniquify : Exp → StateM (Env × Nat) Exp
+| let_ name val body => do
+  let name' ← getModify (·.map id Nat.succ) <&> (λ (_, n) => s!"{name}.{n}") -- poor man's `gensym`
+  let val' ← val.rebind name name' |>.uniquify
+  let body' ← body.rebind name name' |>.uniquify
+  modify (·.map (λ env => env.erase name |>.insert name' val') id)
+  pure (let_ name' val' body')
+| i@(int _) => pure i
+| v@(var _) => pure v
+| e@(op Op.read) => pure e
+| op (add lhs rhs) => op <$> (add <$> lhs.uniquify <*> rhs.uniquify)
+| op (sub lhs rhs) => op <$> (sub <$> lhs.uniquify <*> rhs.uniquify)
+| op (neg e) => (op ∘ neg) <$> e.uniquify
+
+#eval
+  (let_ "x" (int 1) (let_ "y" (int 2) (op (add (var "x") (var "y")))))
+  |>.uniquify
+  |>.run' default
+  |>.run
+  |> toString
+
+#eval
+  (let_ "x" (int 32) (op $ add (let_ "x" (int 10) (var "x")) (var "x")))
+  |>.uniquify
+  |>.run' default
+  |>.run
+  |> toString
+
+end Exp
+
+structure Program where
+  mk :: (info : Env) (exp : Exp)
+
+namespace Program
+
+def LInt? : Program → Prop
+| ⟨_, exp⟩ => exp.exp?
+
+def interpret : Program → IO Int
+| ⟨env, exp⟩ => exp.interpret env
+
+def evaluate : Program → Program
+| ⟨env, exp⟩ => ⟨env, exp.evaluate env⟩
+
+def uniquify : Program → Program
+| ⟨env, exp⟩ => let (exp', env', _) := exp.uniquify |>.run (env, 0) |>.run; ⟨env', exp'⟩
+
+end Program
 end LVar
