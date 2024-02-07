@@ -48,16 +48,19 @@ end
 namespace Exp
 open Op
 
-partial def interpret (exp : Exp) (env : Env) : IO Int := match exp with
+partial def interpret (exp : Exp) : StateT Env IO Int := match exp with
 | int i => pure i
-| var name => match env.find? name with
-  | some e => e.interpret env
+| var name => do
+  match (← get).find? name with
+  | some e => e.interpret
   | none => throw ∘ IO.userError $ "unbound variable: " ++ name
-| let_ name val body => body.interpret (env.insert name val)
+| let_ name val body => do
+  modify (·.insert name val)
+  body.interpret
 | op Op.read => String.toInt! <$> (IO.getStdin >>= (·.getLine))
-| op (add lhs rhs) => Int.add <$> lhs.interpret env <*> rhs.interpret env
-| op (sub lhs rhs) => Int.sub <$> lhs.interpret env <*> rhs.interpret env
-| op (neg e) => Int.neg <$> e.interpret env
+| op (add lhs rhs) => Int.add <$> lhs.interpret <*> rhs.interpret
+| op (sub lhs rhs) => Int.sub <$> lhs.interpret <*> rhs.interpret
+| op (neg e) => Int.neg <$> e.interpret
 
 private def peAdd : Exp → Exp → Exp
 | int a, int b => int (a + b)
@@ -73,9 +76,7 @@ private def peNeg : Exp → Exp
 
 def evaluate (exp : Exp) (env : Env) : Exp := match exp with
 | i@(int _) => i
-| v@(var name) => match env.find? name with
-  | some i => i
-  | none => v
+| v@(var name) => env.find? name |>.getD v
 | l@(let_ _ _ _) => l
 | o@(op Op.read) => o
 | op (add a b) => peAdd a b
@@ -120,12 +121,12 @@ partial def uniquify : Exp → StateM (Env × Nat) Exp
 end Exp
 
 structure Program where
-  mk :: (info : Env) (exp : Exp)
+  mk :: (env : Env) (exp : Exp)
 
 namespace Program
 
 def interpret : Program → IO Int
-| ⟨env, exp⟩ => exp.interpret env
+| ⟨env, exp⟩ => exp.interpret |>.run' env
 
 def evaluate : Program → Program
 | ⟨env, exp⟩ => ⟨env, exp.evaluate env⟩
