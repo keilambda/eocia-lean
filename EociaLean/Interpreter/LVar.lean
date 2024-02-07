@@ -98,7 +98,7 @@ def rebind (exp : Exp) (old new : Var) : Exp := match exp with
 It keeps track of the environment and the number of unique variables generated. -/
 partial def uniquify : Exp → StateM (Env × Nat) Exp
 | let_ name val body => do
-  let name' ← getModify (·.map id Nat.succ) <&> (λ (_, n) => s!"{name}.{n}") -- poor man's `gensym`
+  let name' ← getModify (·.map id Nat.succ) <&> (λ (_, n) => s!"%{n}") -- poor man's `gensym`
   let val' ← val.rebind name name' |>.uniquify
   let body' ← body.rebind name name' |>.uniquify
   modify (·.map (λ env => env.erase name |>.insert name' val') id)
@@ -111,12 +111,12 @@ partial def uniquify : Exp → StateM (Env × Nat) Exp
 | op (neg e) => (op ∘ neg) <$> e.uniquify
 
 #eval
-  ((let_  "x"   (int 1) (let_ "y"   (int 2) (op (add (var "x")   (var "y"))))) |>.uniquify |>.run' default |>.run)
-  = (let_ "x.0" (int 1) (let_ "y.1" (int 2) (op (add (var "x.0") (var "y.1")))))
+  ((let_  "x"  (int 1) (let_ "y"  (int 2) (op (add (var "x")  (var "y"))))) |>.uniquify |>.run' default |>.run)
+  = (let_ "%0" (int 1) (let_ "%1" (int 2) (op (add (var "%0") (var "%1")))))
 
 #eval
-  ((let_  "x"   (int 32) (op (add (let_ "x"     (int 10) (var "x"))     (var "x")))) |>.uniquify |>.run' default |>.run)
-  = (let_ "x.0" (int 32) (op (add (let_ "x.0.1" (int 10) (var "x.0.1")) (var "x.0"))))
+  ((let_  "x"  (int 32) (op (add (let_ "x"  (int 10) (var "x"))  (var "x")))) |>.uniquify |>.run' default |>.run)
+  = (let_ "%0" (int 32) (op (add (let_ "%1" (int 10) (var "%1")) (var "%0"))))
 
 end Exp
 
