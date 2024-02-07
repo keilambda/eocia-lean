@@ -48,6 +48,8 @@ end
 namespace Exp
 open Op
 
+/-- `interpret` interprets the expression in the context of the current environment and returns
+the result as an `Int`. -/
 partial def interpret (exp : Exp) : StateT Env IO Int := match exp with
 | int i => pure i
 | var name => do
@@ -74,6 +76,7 @@ private def peNeg : Exp → Exp
 | int i => int (Int.neg i)
 | other => op $ neg other
 
+/-- `evaluate` partially evaluates an expression using the given environment. -/
 def evaluate (exp : Exp) (env : Env) : Exp := match exp with
 | i@(int _) => i
 | v@(var name) => env.find? name |>.getD v
