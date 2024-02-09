@@ -8,6 +8,15 @@ inductive Atom : Type
 | var : Var → Atom
 deriving Repr
 
+namespace Atom
+
+instance : ToString Atom where
+  toString
+  | int i => toString i
+  | var v => v
+
+end Atom
+
 inductive Op : Type
 | read : Op
 | add : Atom → Atom → Op
@@ -15,14 +24,42 @@ inductive Op : Type
 | neg : Atom → Op
 deriving Repr
 
+namespace Op
+
+instance : ToString Op where
+  toString
+  | read => "(read)"
+  | add lhs rhs => s!"(+ {lhs} {rhs})"
+  | sub lhs rhs => s!"(- {lhs} {rhs})"
+  | neg e => s!"(- {e})"
+
+end Op
+
 inductive Exp : Type
 | atm : Atom → Exp
 | op : Op → Exp
 deriving Repr
 
+namespace Exp
+
+instance : ToString Exp where
+  toString
+  | atm a => toString a
+  | op o => toString o
+
+end Exp
+
 inductive Stmt : Type
 | assign : Var → Exp → Stmt
 deriving Repr
+
+namespace Stmt
+
+instance : ToString Stmt where
+  toString
+  | assign name exp => s!"{name} = {exp};"
+
+end Stmt
 
 inductive Tail : Type
 | ret : Exp → Tail
@@ -30,6 +67,17 @@ inductive Tail : Type
 deriving Repr
 
 abbrev Env : Type := Std.RBMap Var Int compare
+
+namespace Tail
+
+protected def toString' : Tail → String
+| ret e => s!"return {e};"
+| seq s t => s!"{s}\n{t.toString'}"
+
+instance : ToString Tail where
+  toString := Tail.toString'
+
+end Tail
 
 structure CVar : Type where
   mk :: (env : Env) (blocks : Std.RBMap Label Tail compare)
