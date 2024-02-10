@@ -7,7 +7,7 @@ inductive Reg : Type
 | rsp | rbp | rax | rbx | rcx | rdx | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
 deriving Repr
 
-open Reg
+namespace Reg
 
 instance : ToString Reg where
   toString
@@ -28,21 +28,25 @@ instance : ToString Reg where
   | r14 => "%r14"
   | r15 => "%r15"
 
+end Reg
+
 inductive Arg : Type
 | imm : Int → Arg
 | reg : Reg → Arg
-| deref : Arg → Arg → Arg
+| deref : Arg → Reg → Arg
 deriving Repr
 
-open Arg
+namespace Arg
 
-def Arg.toString' : Arg → String
+protected def toString' : Arg → String
 | imm i => toString i
 | reg r => toString r
-| deref a b => s!"{toString' a}({toString' b})"
+| deref a b => s!"{a.toString'}({b})"
 
 instance : ToString Arg where
   toString := Arg.toString'
+
+end Arg
 
 inductive Instr : Type
 | addq : Arg → Arg → Instr
@@ -56,7 +60,7 @@ inductive Instr : Type
 | jmp : Label → Instr
 deriving Repr
 
-open Instr
+namespace Instr
 
 instance : ToString Instr where
   toString
@@ -69,6 +73,8 @@ instance : ToString Instr where
   | callq lbl d => s!"callq {lbl}, {d}"
   | retq => "retq"
   | jmp lbl => s!"jmp {lbl}"
+
+end Instr
 
 abbrev Env : Type := Std.RBMap Var Int compare
 
