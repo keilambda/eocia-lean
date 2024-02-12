@@ -44,7 +44,9 @@ protected def toString' : Arg → String
 | imm i => s!"${toString i}"
 | reg r => s!"%{toString r}"
 | var v => v
-| deref a b => s!"{a.toString'}({b})"
+| deref a b => match a with
+  | imm i => s!"{i}(%{b})"
+  | other => other.toString'
 
 instance : ToString Arg where
   toString := Arg.toString'
@@ -115,6 +117,33 @@ def fromCVarTail : CVar.Tail → List Instr
 | CVar.Tail.seq s t => fromCVarStmt s ++ fromCVarTail t
 
 abbrev selectInstructions := fromCVarTail
+
+structure Homes : Type where
+  mk :: (env : Std.RBMap Var Arg compare) (offset : Int)
+deriving Repr, Inhabited
+
+@[inline] def Homes.frameSize (h : Homes) : Int := h.offset.neg
+
+def fromx86Arg : Arg → StateM Homes Arg
+| var name => do
+  let ⟨env, offset⟩ ← get
+  match env.find? name with
+  | some arg => pure arg
+  | none => do
+    let offset' := offset - 8
+    modify λ ⟨env, _⟩ => ⟨env.insert name (deref (imm offset') rbp), offset'⟩
+    pure $ deref (imm offset') rbp
+| i@(imm _) | i@(reg _) | i@(deref _ _) => pure i
+
+def assignHomes (xs : List Instr) : StateM Homes (List Instr) :=
+  xs.traverse λ x => match x with
+  | addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
+  | subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
+  | negq d => negq <$> fromx86Arg d
+  | movq s d => movq <$> fromx86Arg s <*> fromx86Arg d
+  | pushq d => pushq <$> fromx86Arg d
+  | popq d => popq <$> fromx86Arg d
+  | i@(callq _ _) | i@(retq) | i@(jmp _) => pure i
 
 end Instr
 
