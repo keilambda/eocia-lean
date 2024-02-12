@@ -11,22 +11,22 @@ namespace Reg
 
 instance : ToString Reg where
   toString
-  | rsp => "%rsp"
-  | rbp => "%rbp"
-  | rax => "%rax"
-  | rbx => "%rbx"
-  | rcx => "%rcx"
-  | rdx => "%rdx"
-  | rsi => "%rsi"
-  | rdi => "%rdi"
-  | r8 => "%r8"
-  | r9 => "%r9"
-  | r10 => "%r10"
-  | r11 => "%r11"
-  | r12 => "%r12"
-  | r13 => "%r13"
-  | r14 => "%r14"
-  | r15 => "%r15"
+  | rsp => "rsp"
+  | rbp => "rbp"
+  | rax => "rax"
+  | rbx => "rbx"
+  | rcx => "rcx"
+  | rdx => "rdx"
+  | rsi => "rsi"
+  | rdi => "rdi"
+  | r8 => "r8"
+  | r9 => "r9"
+  | r10 => "r10"
+  | r11 => "r11"
+  | r12 => "r12"
+  | r13 => "r13"
+  | r14 => "r14"
+  | r15 => "r15"
 
 end Reg
 
@@ -39,8 +39,8 @@ deriving Repr
 namespace Arg
 
 protected def toString' : Arg → String
-| imm i => toString i
-| reg r => toString r
+| imm i => s!"${toString i}"
+| reg r => s!"%{toString r}"
 | deref a b => s!"{a.toString'}({b})"
 
 instance : ToString Arg where
@@ -88,9 +88,8 @@ structure x86Int : Type where
   mk :: (env : Env) (globl : Label) (blocks : Std.RBMap Label Block compare)
 
 instance : ToString x86Int where
-  toString p := s!".globl {p.globl}\n{p.blocks.foldl labelWithBlock default}"
+  toString p := s!".globl {p.globl}\n{p.blocks.foldl build default}"
   where
-  labelWithBlock (acc : String) (lbl : Label) (block : Block) : String :=
-    s!"{acc}{lbl}:\n{block}"
+  build acc lbl block := s!"{acc}{lbl}:\n{block}"
 
 end x86Int
