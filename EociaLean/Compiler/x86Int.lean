@@ -41,7 +41,9 @@ namespace Arg
 protected def toString' : Arg → String
 | imm i => s!"${toString i}"
 | reg r => s!"%{toString r}"
-| deref a b => s!"{a.toString'}({b})"
+| deref a b => match a with
+  | imm i => s!"{i}(%{b})"
+  | other => other.toString'
 
 instance : ToString Arg where
   toString := Arg.toString'
