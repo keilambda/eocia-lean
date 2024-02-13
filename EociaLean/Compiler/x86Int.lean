@@ -104,20 +104,42 @@ def patchInstructions (xs : List Instr) : List Instr := concatMap xs λ
 
 end Instr
 
-abbrev Env : Type := Std.RBMap Var Int compare
-
 structure Block : Type where
-  mk :: (env : Env) (instructions : List Instr)
+  mk :: (instructions : List Instr)
 
 instance : ToString Block where
   toString b := b.instructions.foldl (λ acc i => s!"{acc}\t{i}\n") default
 
 structure x86Int : Type where
-  mk :: (env : Env) (globl : Label) (blocks : Std.RBMap Label Block compare)
+  mk :: (globl : Label) (blocks : Std.RBMap Label Block compare)
 
 instance : ToString x86Int where
   toString p := s!".globl {p.globl}\n{p.blocks.foldl build default}"
   where
   build acc lbl block := s!"{acc}{lbl}:\n{block}"
+
+open Instr Arg Reg in
+def allocate (size : Int) : List Instr :=
+  [ pushq (reg rbp)
+  , movq (reg rsp) (reg rbp)
+  , subq (imm size) (reg rsp)
+  ]
+
+open Instr Arg Reg in
+def deallocate (size : Int) : List Instr :=
+  [ addq (imm size) (reg rsp)
+  , popq (reg rbp)
+  , retq
+  ]
+
+def generatePreludeAndConclusion (frameSize : Int) (xs : List Instr) : x86Int :=
+  ⟨ Labels.prelude
+  , Std.RBMap.ofList
+    [ (Labels.prelude, ⟨allocate frameSize |>.concat (Instr.jmp Labels.main)⟩)
+    , (Labels.main, ⟨xs.concat (Instr.jmp Labels.conclusion)⟩)
+    , (Labels.conclusion, ⟨deallocate frameSize⟩)
+    ]
+    compare
+  ⟩
 
 end x86Int

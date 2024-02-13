@@ -32,3 +32,11 @@ instance : ToString Reg where
   | r15 => "r15"
 
 end Reg
+
+namespace Labels
+
+def main : String := "main"
+def prelude : String := "prelude"
+def conclusion : String := "conclusion"
+
+end Labels
