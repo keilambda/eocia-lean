@@ -36,7 +36,7 @@ end Reg
 namespace Labels
 
 def main : String := "main"
-def prelude : String := "prelude"
+def prelude : String := "_start"
 def conclusion : String := "conclusion"
 
 end Labels
