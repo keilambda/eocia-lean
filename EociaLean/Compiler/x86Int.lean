@@ -1,34 +1,8 @@
 import Std.Data.RBMap
 import EociaLean.Basic
+import EociaLean.Compiler.x86Var
 
 namespace x86Int
-
-inductive Reg : Type
-| rsp | rbp | rax | rbx | rcx | rdx | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
-deriving Repr
-
-namespace Reg
-
-instance : ToString Reg where
-  toString
-  | rsp => "rsp"
-  | rbp => "rbp"
-  | rax => "rax"
-  | rbx => "rbx"
-  | rcx => "rcx"
-  | rdx => "rdx"
-  | rsi => "rsi"
-  | rdi => "rdi"
-  | r8 => "r8"
-  | r9 => "r9"
-  | r10 => "r10"
-  | r11 => "r11"
-  | r12 => "r12"
-  | r13 => "r13"
-  | r14 => "r14"
-  | r15 => "r15"
-
-end Reg
 
 inductive Arg : Type
 | imm : Int → Arg
@@ -63,6 +37,7 @@ inductive Instr : Type
 deriving Repr
 
 namespace Instr
+open Reg Arg
 
 instance : ToString Instr where
   toString
@@ -75,6 +50,57 @@ instance : ToString Instr where
   | callq lbl d => s!"callq {lbl}, {d}"
   | retq => "retq"
   | jmp lbl => s!"jmp {lbl}"
+
+structure Homes : Type where
+  mk :: (env : Std.RBMap Var Arg compare) (offset : Int)
+deriving Repr, Inhabited
+
+@[inline] def Homes.frameSize (h : Homes) : Int := h.offset.neg
+
+def fromx86Arg : x86Var.Arg → StateM Homes Arg
+| x86Var.Arg.var name => do
+  let ⟨env, offset⟩ ← get
+  match env.find? name with
+  | some arg => pure arg
+  | none => do
+    let offset' := offset - 8
+    modify λ ⟨env, _⟩ => ⟨env.insert name (deref (imm offset') rbp), offset'⟩
+    pure $ deref (imm offset') rbp
+| x86Var.Arg.imm i => pure (imm i)
+| x86Var.Arg.reg r => pure (reg r)
+| x86Var.Arg.deref a b => (deref · b) <$> fromx86Arg a
+
+def assignHomes (xs : List x86Var.Instr) : StateM Homes (List Instr) := xs.traverse λ
+| x86Var.Instr.addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
+| x86Var.Instr.subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
+| x86Var.Instr.negq d => negq <$> fromx86Arg d
+| x86Var.Instr.movq s d => movq <$> fromx86Arg s <*> fromx86Arg d
+| x86Var.Instr.pushq d => pushq <$> fromx86Arg d
+| x86Var.Instr.popq d => popq <$> fromx86Arg d
+| x86Var.Instr.callq lbl d => pure $ callq lbl d
+| x86Var.Instr.retq => pure retq
+| x86Var.Instr.jmp lbl => pure $ jmp lbl
+
+def patchInstructions (xs : List Instr) : List Instr := concatMap xs λ
+| i@(addq s d) => match (s, d) with
+  | (deref la lb, deref ra rb) =>
+    [ movq (deref la lb) (reg rax)
+    , addq (reg rax) (deref ra rb)
+    ]
+  | _ => [i]
+| i@(subq s d) => match (s, d) with
+  | (deref la lb, deref ra rb) =>
+    [ movq (deref la lb) (reg rax)
+    , subq (reg rax) (deref ra rb)
+    ]
+  | _ => [i]
+| i@(movq s d) => match (s, d) with
+  | (deref la lb, deref ra rb) =>
+    [ movq (deref la lb) (reg rax)
+    , movq (reg rax) (deref ra rb)
+    ]
+  | _ => [i]
+| i@(negq _) | i@(pushq _) | i@(popq _) | i@(callq _ _) | i@(retq) | i@(jmp _) => [i]
 
 end Instr
 

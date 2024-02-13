@@ -4,33 +4,6 @@ import EociaLean.Compiler.CVar
 
 namespace x86Var
 
-inductive Reg : Type
-| rsp | rbp | rax | rbx | rcx | rdx | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
-deriving Repr
-
-namespace Reg
-
-instance : ToString Reg where
-  toString
-  | rsp => "rsp"
-  | rbp => "rbp"
-  | rax => "rax"
-  | rbx => "rbx"
-  | rcx => "rcx"
-  | rdx => "rdx"
-  | rsi => "rsi"
-  | rdi => "rdi"
-  | r8 => "r8"
-  | r9 => "r9"
-  | r10 => "r10"
-  | r11 => "r11"
-  | r12 => "r12"
-  | r13 => "r13"
-  | r14 => "r14"
-  | r15 => "r15"
-
-end Reg
-
 inductive Arg : Type
 | imm : Int → Arg
 | reg : Reg → Arg
@@ -117,33 +90,6 @@ def fromCVarTail : CVar.Tail → List Instr
 | CVar.Tail.seq s t => fromCVarStmt s ++ fromCVarTail t
 
 abbrev selectInstructions := fromCVarTail
-
-structure Homes : Type where
-  mk :: (env : Std.RBMap Var Arg compare) (offset : Int)
-deriving Repr, Inhabited
-
-@[inline] def Homes.frameSize (h : Homes) : Int := h.offset.neg
-
-def fromx86Arg : Arg → StateM Homes Arg
-| var name => do
-  let ⟨env, offset⟩ ← get
-  match env.find? name with
-  | some arg => pure arg
-  | none => do
-    let offset' := offset - 8
-    modify λ ⟨env, _⟩ => ⟨env.insert name (deref (imm offset') rbp), offset'⟩
-    pure $ deref (imm offset') rbp
-| i@(imm _) | i@(reg _) | i@(deref _ _) => pure i
-
-def assignHomes (xs : List Instr) : StateM Homes (List Instr) :=
-  xs.traverse λ x => match x with
-  | addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
-  | subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
-  | negq d => negq <$> fromx86Arg d
-  | movq s d => movq <$> fromx86Arg s <*> fromx86Arg d
-  | pushq d => pushq <$> fromx86Arg d
-  | popq d => popq <$> fromx86Arg d
-  | i@(callq _ _) | i@(retq) | i@(jmp _) => pure i
 
 end Instr
 
