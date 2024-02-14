@@ -1,5 +1,7 @@
 import EociaLean.Basic
-import EociaLean.Interpreter.LInt
-import EociaLean.Interpreter.LVar
-import EociaLean.Compiler.CVar
-import EociaLean.Compiler.x86Int
+import EociaLean.IR.LInt
+import EociaLean.IR.LVar
+import EociaLean.IR.LVarMon
+import EociaLean.IR.CVar
+import EociaLean.IR.x86Int
+import EociaLean.IR.x86Var

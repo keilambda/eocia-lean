@@ -1,6 +1,6 @@
 import Std.Data.RBMap
 import EociaLean.Basic
-import EociaLean.Compiler.x86Var
+import EociaLean.IR.x86Var
 
 namespace x86Int
 
