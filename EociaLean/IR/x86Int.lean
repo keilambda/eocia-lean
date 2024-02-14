@@ -1,13 +1,14 @@
 import Std.Data.RBMap
 import EociaLean.Basic
+import EociaLean.IR.x86
 import EociaLean.IR.x86Var
 
 namespace x86Int
 
 inductive Arg : Type
 | imm : Int → Arg
-| reg : Reg → Arg
-| deref : Arg → Reg → Arg
+| reg : x86.Reg → Arg
+| deref : Arg → x86.Reg → Arg
 deriving Repr
 
 namespace Arg
@@ -38,7 +39,7 @@ inductive Instr : Type
 deriving Repr
 
 namespace Instr
-open Reg Arg
+open x86.Reg Arg
 
 instance : ToString Instr where
   toString
@@ -123,20 +124,20 @@ instance : ToString x86Int where
   where
   build acc lbl block := s!"{acc}{lbl}:\n{block}"
 
-open Instr Arg Reg in
+open Instr Arg x86.Reg in
 @[inline] def allocate (size : Int) : List Instr :=
   [ pushq (reg rbp)
   , movq (reg rsp) (reg rbp)
   , subq (imm size) (reg rsp)
   ]
 
-open Instr Arg Reg in
+open Instr Arg x86.Reg in
 @[inline] def deallocate (size : Int) : List Instr :=
   [ addq (imm size) (reg rsp)
   , popq (reg rbp)
   ]
 
-open Instr Arg Reg in
+open Instr Arg x86.Reg in
 @[inline] def exit : List Instr :=
   [ movq (imm 60) (reg rax)
   , movq (imm 0) (reg rdi)

@@ -1,14 +1,15 @@
 import Std.Data.RBMap
 import EociaLean.Basic
+import EociaLean.IR.x86
 import EociaLean.IR.CVar
 
 namespace x86Var
 
 inductive Arg : Type
 | imm : Int → Arg
-| reg : Reg → Arg
+| reg : x86.Reg → Arg
 | var : Var → Arg
-| deref : Arg → Reg → Arg
+| deref : Arg → x86.Reg → Arg
 deriving Repr
 
 namespace Arg
@@ -40,7 +41,7 @@ inductive Instr : Type
 deriving Repr
 
 namespace Instr
-open Reg Arg
+open x86.Reg Arg
 
 instance : ToString Instr where
   toString
