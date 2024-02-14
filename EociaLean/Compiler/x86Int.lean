@@ -53,13 +53,15 @@ instance : ToString Instr where
   | jmp lbl => s!"jmp {lbl}"
   | syscall => "syscall"
 
-structure Homes : Type where
+structure Frame : Type where
   mk :: (env : Std.RBMap Var Arg compare) (offset : Int)
 deriving Repr, Inhabited
 
-@[inline] def Homes.frameSize (h : Homes) : Int := h.offset.neg
+@[inline] def Frame.frameSize (h : Frame) : Int :=
+  let n := h.offset.neg
+  (n % 16) + n -- align to be a multiple of 16
 
-def fromx86Arg : x86Var.Arg → StateM Homes Arg
+def fromx86Arg : x86Var.Arg → StateM Frame Arg
 | x86Var.Arg.var name => do
   let ⟨env, offset⟩ ← get
   match env.find? name with
@@ -72,7 +74,7 @@ def fromx86Arg : x86Var.Arg → StateM Homes Arg
 | x86Var.Arg.reg r => pure (reg r)
 | x86Var.Arg.deref a b => (deref · b) <$> fromx86Arg a
 
-def assignHomes (xs : List x86Var.Instr) : StateM Homes (List Instr) := xs.traverse λ
+def assignHomes (xs : List x86Var.Instr) : StateM Frame (List Instr) := xs.traverse λ
 | x86Var.Instr.addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
 | x86Var.Instr.subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
 | x86Var.Instr.negq d => negq <$> fromx86Arg d
