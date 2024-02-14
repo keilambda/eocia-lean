@@ -55,37 +55,6 @@ protected def toString' : Exp → String
 instance : ToString Exp where
   toString := Exp.toString'
 
-@[inline] def gensym : StateM (Env × Nat) String := getModify (·.map id Nat.succ) <&> (s!"%{·.2}")
-@[inline] def addvar (k : Var) (v : Exp) : StateM (Env × Nat) PUnit := modify (·.map (·.insert k v) id)
-
-def removeComplexOperands : LVar.Exp → StateM (Env × Nat) Exp
-| LVar.Exp.int i => pure $ atm (int i)
-| LVar.Exp.var v => pure $ atm (var v)
-| LVar.Exp.let_ name val body => let_ name <$> removeComplexOperands val <*> removeComplexOperands body
-| LVar.Exp.op o => match o with
-  | LVar.Op.read => pure $ op read
-  | LVar.Op.add lhs rhs => do
-    let lname ← gensym
-    let rname ← gensym
-    let lval ← removeComplexOperands lhs
-    let rval ← removeComplexOperands rhs
-    addvar lname lval
-    addvar rname rval
-    pure ∘ let_ lname lval ∘ let_ rname rval ∘ op $ add (var lname) (var rname)
-  | LVar.Op.sub lhs rhs => do
-    let lname ← gensym
-    let rname ← gensym
-    let lval ← removeComplexOperands lhs
-    let rval ← removeComplexOperands rhs
-    addvar lname lval
-    addvar rname rval
-    pure ∘ let_ lname lval ∘ let_ rname rval ∘ op $ sub (var lname) (var rname)
-  | LVar.Op.neg e => do
-    let name ← gensym
-    let val ← removeComplexOperands e
-    addvar name val
-    pure ∘ let_ name val ∘ op ∘ neg ∘ var $ name
-
 partial def interpret (exp : Exp) : StateT Env IO Int := match exp with
 | atm a => match a with
   | int i => pure i
