@@ -27,9 +27,9 @@ open Exp Op
 
 def Op.toString' : Op → String
 | Op.read => "(read)"
-| Op.add lhs rhs => s!"(+ {lhs.toString'} {rhs.toString'})"
-| Op.sub lhs rhs => s!"(- {lhs.toString'} {rhs.toString'})"
-| Op.neg e => s!"(- {e.toString'})"
+| add lhs rhs => s!"(+ {lhs.toString'} {rhs.toString'})"
+| sub lhs rhs => s!"(- {lhs.toString'} {rhs.toString'})"
+| neg e => s!"(- {e.toString'})"
 
 def Exp.toString' : Exp → String
 | int i => toString i

@@ -59,37 +59,40 @@ instance : ToString Instr where
 | CVar.Atom.int i => imm i
 | CVar.Atom.var v => var v
 
+open CVar.Op in
 def fromCVarOp (dest : Arg) : CVar.Op → List Instr
 | CVar.Op.read =>
   [ callq "read_int" 0
   , movq (reg rax) dest
   ]
-| CVar.Op.add lhs rhs =>
+| add lhs rhs =>
   [ movq (fromCVarAtom lhs) (reg rax)
   , addq (fromCVarAtom rhs) (reg rax)
   , movq (reg rax) dest
   ]
-| CVar.Op.sub lhs rhs =>
+| sub lhs rhs =>
   [ movq (fromCVarAtom lhs) (reg rax)
   , subq (fromCVarAtom rhs) (reg rax)
   , movq (reg rax) dest
   ]
-| CVar.Op.neg a =>
+| neg a =>
   [ movq (fromCVarAtom a) (reg rax)
   , negq (reg rax)
   , movq (reg rax) dest
   ]
 
+open CVar.Stmt CVar.Exp in
 @[inline] def fromCVarStmt : CVar.Stmt → List Instr
-| CVar.Stmt.assign name exp => match exp with
-  | CVar.Exp.atm a => [movq (fromCVarAtom a) (var name)]
-  | CVar.Exp.op o => fromCVarOp (var name) o
+| assign name exp => match exp with
+  | atm a => [movq (fromCVarAtom a) (var name)]
+  | op o => fromCVarOp (var name) o
 
+open CVar.Tail CVar.Exp in
 def fromCVarTail : CVar.Tail → List Instr
-| CVar.Tail.ret e => match e with
-  | CVar.Exp.atm a => [movq (fromCVarAtom a) (reg rax)]
-  | CVar.Exp.op o => fromCVarOp (reg rax) o
-| CVar.Tail.seq s t => fromCVarStmt s ++ fromCVarTail t
+| ret e => match e with
+  | atm a => [movq (fromCVarAtom a) (reg rax)]
+  | op o => fromCVarOp (reg rax) o
+| seq s t => fromCVarStmt s ++ fromCVarTail t
 
 abbrev selectInstructions := fromCVarTail
 
