@@ -36,6 +36,7 @@ inductive Instr : Type
 | callq : Label → Int → Instr
 | retq : Instr
 | jmp : Label → Instr
+| syscall : Instr
 deriving Repr
 
 namespace Instr
@@ -52,6 +53,7 @@ instance : ToString Instr where
   | callq lbl d => s!"callq {lbl}, {d}"
   | retq => "retq"
   | jmp lbl => s!"jmp {lbl}"
+  | syscall => "syscall"
 
 def fromCVarAtom : CVar.Atom → Arg
 | CVar.Atom.int i => imm i

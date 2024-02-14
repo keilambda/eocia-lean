@@ -34,6 +34,7 @@ inductive Instr : Type
 | callq : Label → Int → Instr
 | retq : Instr
 | jmp : Label → Instr
+| syscall : Instr
 deriving Repr
 
 namespace Instr
@@ -50,6 +51,7 @@ instance : ToString Instr where
   | callq lbl d => s!"callq {lbl}, {d}"
   | retq => "retq"
   | jmp lbl => s!"jmp {lbl}"
+  | syscall => "syscall"
 
 structure Homes : Type where
   mk :: (env : Std.RBMap Var Arg compare) (offset : Int)
@@ -80,6 +82,7 @@ def assignHomes (xs : List x86Var.Instr) : StateM Homes (List Instr) := xs.trave
 | x86Var.Instr.callq lbl d => pure $ callq lbl d
 | x86Var.Instr.retq => pure retq
 | x86Var.Instr.jmp lbl => pure $ jmp lbl
+| x86Var.Instr.syscall => pure syscall
 
 def patchInstructions (xs : List Instr) : List Instr := concatMap xs λ
 | i@(addq s d) => match (s, d) with
@@ -100,7 +103,7 @@ def patchInstructions (xs : List Instr) : List Instr := concatMap xs λ
     , movq (reg rax) (deref ra rb)
     ]
   | _ => [i]
-| i@(negq _) | i@(pushq _) | i@(popq _) | i@(callq _ _) | i@(retq) | i@(jmp _) => [i]
+| i@(negq _) | i@(pushq _) | i@(popq _) | i@(callq _ _) | i@(retq) | i@(jmp _) | i@(syscall) => [i]
 
 end Instr
 
@@ -129,6 +132,9 @@ open Instr Arg Reg in
 def deallocate (size : Int) : List Instr :=
   [ addq (imm size) (reg rsp)
   , popq (reg rbp)
+  , movq (imm 60) (reg rax)
+  , movq (imm 0) (reg rdi)
+  , syscall
   , retq
   ]
 
