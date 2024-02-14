@@ -52,8 +52,7 @@ def interpret : Exp → IO Int
 | other => op $ neg other
 
 def evaluate : Exp → Exp
-| i@(int _) => i
-| o@(op Op.read) => o
+| i@(int _) | i@(op Op.read) => i
 | op (add a b) => peAdd a b
 | op (sub a b) => peSub a b
 | op (neg a) => peNeg a

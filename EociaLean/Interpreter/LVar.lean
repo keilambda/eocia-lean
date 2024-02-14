@@ -78,10 +78,8 @@ partial def interpret (exp : Exp) : StateT Env IO Int := match exp with
 
 /-- `evaluate` partially evaluates an expression using the given environment. -/
 def evaluate (exp : Exp) (env : Env) : Exp := match exp with
-| i@(int _) => i
 | v@(var name) => env.find? name |>.getD v
-| l@(let_ _ _ _) => l
-| o@(op Op.read) => o
+| i@(int _) | i@(let_ _ _ _) | i@(op Op.read) => i
 | op (add a b) => peAdd a b
 | op (sub a b) => peSub a b
 | op (neg a) => peNeg a
@@ -89,10 +87,9 @@ def evaluate (exp : Exp) (env : Env) : Exp := match exp with
 /-- `rebind` traverses `exp` and rebinds each occurrence of the `old` binding (both `Exp.var` and
 `Exp.let_`) to `new`. -/
 def rebind (exp : Exp) (old new : Var) : Exp := match exp with
-| i@(int _) => i
 | v@(var name) => if name == old then var new else v
 | let_ name val body => let_ (if name == old then new else name) (val.rebind old new) (body.rebind old new)
-| o@(op Op.read) => o
+| i@(int _) | i@(op Op.read) => i
 | op (add lhs rhs) => op $ add (lhs.rebind old new) (rhs.rebind old new)
 | op (sub lhs rhs) => op $ sub (lhs.rebind old new) (rhs.rebind old new)
 | op (neg e) => op $ neg (e.rebind old new)
@@ -106,9 +103,7 @@ partial def uniquify : Exp → StateM (Env × Nat) Exp
   let body' ← body.rebind name name' |>.uniquify
   modify (·.map (λ env => env.erase name |>.insert name' val') id)
   pure (let_ name' val' body')
-| i@(int _) => pure i
-| v@(var _) => pure v
-| e@(op Op.read) => pure e
+| i@(int _) | i@(var _) | i@(op Op.read) => pure i
 | op (add lhs rhs) => op <$> (add <$> lhs.uniquify <*> rhs.uniquify)
 | op (sub lhs rhs) => op <$> (sub <$> lhs.uniquify <*> rhs.uniquify)
 | op (neg e) => (op ∘ neg) <$> e.uniquify
