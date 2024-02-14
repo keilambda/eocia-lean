@@ -16,7 +16,7 @@ instance : ToString Atom where
   | int i => toString i
   | var v => v
 
-def fromLVarMonAtom : LVarMon.Atom → Atom
+@[inline] def fromLVarMonAtom : LVarMon.Atom → Atom
 | LVarMon.Atom.int i => int i
 | LVarMon.Atom.var v => var v
 

@@ -55,7 +55,7 @@ instance : ToString Instr where
   | jmp lbl => s!"jmp {lbl}"
   | syscall => "syscall"
 
-def fromCVarAtom : CVar.Atom → Arg
+@[inline] def fromCVarAtom : CVar.Atom → Arg
 | CVar.Atom.int i => imm i
 | CVar.Atom.var v => var v
 
@@ -80,7 +80,7 @@ def fromCVarOp (dest : Arg) : CVar.Op → List Instr
   , movq (reg rax) dest
   ]
 
-def fromCVarStmt : CVar.Stmt → List Instr
+@[inline] def fromCVarStmt : CVar.Stmt → List Instr
 | CVar.Stmt.assign name exp => match exp with
   | CVar.Exp.atm a => [movq (fromCVarAtom a) (var name)]
   | CVar.Exp.op o => fromCVarOp (var name) o

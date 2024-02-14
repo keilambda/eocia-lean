@@ -55,8 +55,8 @@ protected def toString' : Exp → String
 instance : ToString Exp where
   toString := Exp.toString'
 
-def gensym : StateM (Env × Nat) String := getModify (·.map id Nat.succ) <&> (s!"%{·.2}")
-def addvar (k : Var) (v : Exp) : StateM (Env × Nat) PUnit := modify (·.map (·.insert k v) id)
+@[inline] def gensym : StateM (Env × Nat) String := getModify (·.map id Nat.succ) <&> (s!"%{·.2}")
+@[inline] def addvar (k : Var) (v : Exp) : StateM (Env × Nat) PUnit := modify (·.map (·.insert k v) id)
 
 def removeComplexOperands : LVar.Exp → StateM (Env × Nat) Exp
 | LVar.Exp.int i => pure $ atm (int i)

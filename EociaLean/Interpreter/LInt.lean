@@ -39,15 +39,15 @@ def interpret : Exp → IO Int
 | op (sub lhs rhs) => Int.sub <$> lhs.interpret <*> rhs.interpret
 | op (neg e) => Int.neg <$> e.interpret
 
-private def peAdd : Exp → Exp → Exp
+@[inline] private def peAdd : Exp → Exp → Exp
 | int a, int b => int (a + b)
 | a, b => op $ add a b
 
-private def peSub : Exp → Exp → Exp
+@[inline] private def peSub : Exp → Exp → Exp
 | int a, int b => int (a - b)
 | a, b => op $ sub a b
 
-private def peNeg : Exp → Exp
+@[inline] private def peNeg : Exp → Exp
 | int i => int (Int.neg i)
 | other => op $ neg other
 

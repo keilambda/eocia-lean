@@ -124,28 +124,32 @@ instance : ToString x86Int where
   build acc lbl block := s!"{acc}{lbl}:\n{block}"
 
 open Instr Arg Reg in
-def allocate (size : Int) : List Instr :=
+@[inline] def allocate (size : Int) : List Instr :=
   [ pushq (reg rbp)
   , movq (reg rsp) (reg rbp)
   , subq (imm size) (reg rsp)
   ]
 
 open Instr Arg Reg in
-def deallocate (size : Int) : List Instr :=
+@[inline] def deallocate (size : Int) : List Instr :=
   [ addq (imm size) (reg rsp)
   , popq (reg rbp)
-  , movq (imm 60) (reg rax)
-  , movq (imm 0) (reg rdi)
-  , syscall
-  , retq
   ]
 
-def generatePreludeAndConclusion (frameSize : Int) (xs : List Instr) : x86Int :=
+open Instr Arg Reg in
+@[inline] def exit : List Instr :=
+  [ movq (imm 60) (reg rax)
+  , movq (imm 0) (reg rdi)
+  , syscall
+  ]
+
+open Instr in
+@[inline] def generatePreludeAndConclusion (frameSize : Int) (xs : List Instr) : x86Int :=
   ⟨ Labels.prelude
   , Std.RBMap.ofList
-    [ (Labels.prelude, ⟨allocate frameSize |>.concat (Instr.jmp Labels.main)⟩)
-    , (Labels.main, ⟨xs.concat (Instr.jmp Labels.conclusion)⟩)
-    , (Labels.conclusion, ⟨deallocate frameSize⟩)
+    [ (Labels.prelude, ⟨allocate frameSize |>.concat (jmp Labels.main)⟩)
+    , (Labels.main, ⟨xs.concat (jmp Labels.conclusion)⟩)
+    , (Labels.conclusion, ⟨deallocate frameSize ++ exit ++ [retq]⟩)
     ]
     compare
   ⟩
