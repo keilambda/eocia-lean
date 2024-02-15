@@ -194,4 +194,14 @@ end Labels
     compare
   ⟩
 
+def compile (p : LVar.Program) : x86Int.Program :=
+  p.exp
+  |>.uniquify |>.run' (∅, 0) |>.run
+  |> removeComplexOperands |>.run' (∅, 0) |>.run
+  |> explicateControl
+  |> selectInstructions
+  |> assignHomes |>.run ⟨∅, 0⟩ |>.run
+  |> λ (xs, f) => patchInstructions xs
+  |> preludeAndConclusion f.frameSize
+
 end Pass
