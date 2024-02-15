@@ -135,4 +135,26 @@ def assignHomes (xs : List x86Var.Instr) : StateM x86Int.Frame (List x86Int.Inst
 | x86Var.Instr.jmp lbl => pure $ jmp lbl
 | x86Var.Instr.syscall => pure syscall
 
+open x86Int.Instr x86Int.Arg in
+def patchInstructions (xs : List x86Int.Instr) : List x86Int.Instr := concatMap xs λ
+| i@(addq s d) => match (s, d) with
+  | (deref la lb, deref ra rb) =>
+    [ movq (deref la lb) (reg rax)
+    , addq (reg rax) (deref ra rb)
+    ]
+  | _ => [i]
+| i@(subq s d) => match (s, d) with
+  | (deref la lb, deref ra rb) =>
+    [ movq (deref la lb) (reg rax)
+    , subq (reg rax) (deref ra rb)
+    ]
+  | _ => [i]
+| i@(movq s d) => match (s, d) with
+  | (deref la lb, deref ra rb) =>
+    [ movq (deref la lb) (reg rax)
+    , movq (reg rax) (deref ra rb)
+    ]
+  | _ => [i]
+| i@(negq _) | i@(pushq _) | i@(popq _) | i@(callq _ _) | i@(retq) | i@(jmp _) | i@(syscall) => [i]
+
 end Pass

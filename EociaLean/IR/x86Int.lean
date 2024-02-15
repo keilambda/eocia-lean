@@ -63,27 +63,6 @@ instance : ToString Instr where
   | jmp lbl => s!"jmp {lbl}"
   | syscall => "syscall"
 
-def patchInstructions (xs : List Instr) : List Instr := concatMap xs λ
-| i@(addq s d) => match (s, d) with
-  | (deref la lb, deref ra rb) =>
-    [ movq (deref la lb) (reg rax)
-    , addq (reg rax) (deref ra rb)
-    ]
-  | _ => [i]
-| i@(subq s d) => match (s, d) with
-  | (deref la lb, deref ra rb) =>
-    [ movq (deref la lb) (reg rax)
-    , subq (reg rax) (deref ra rb)
-    ]
-  | _ => [i]
-| i@(movq s d) => match (s, d) with
-  | (deref la lb, deref ra rb) =>
-    [ movq (deref la lb) (reg rax)
-    , movq (reg rax) (deref ra rb)
-    ]
-  | _ => [i]
-| i@(negq _) | i@(pushq _) | i@(popq _) | i@(callq _ _) | i@(retq) | i@(jmp _) | i@(syscall) => [i]
-
 end Instr
 
 structure Block : Type where
