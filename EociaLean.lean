@@ -108,4 +108,31 @@ def selectInstructions : CVar.Tail → List x86Var.Instr
   | op o => fromCVarOp (reg rax) o
 | seq s t => fromCVarStmt s ++ selectInstructions t
 
+open x86Int.Arg in
+def fromx86Arg : x86Var.Arg → StateM x86Int.Frame x86Int.Arg
+| x86Var.Arg.var name => do
+  let ⟨env, offset⟩ ← get
+  match env.find? name with
+  | some arg => pure arg
+  | none => do
+    let offset' := offset - 8
+    modify λ ⟨env, _⟩ => ⟨env.insert name (deref (imm offset') rbp), offset'⟩
+    pure $ deref (imm offset') rbp
+| x86Var.Arg.imm i => pure (imm i)
+| x86Var.Arg.reg r => pure (reg r)
+| x86Var.Arg.deref a b => (deref · b) <$> fromx86Arg a
+
+open x86Int.Instr in
+def assignHomes (xs : List x86Var.Instr) : StateM x86Int.Frame (List x86Int.Instr) := xs.traverse λ
+| x86Var.Instr.addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
+| x86Var.Instr.subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
+| x86Var.Instr.negq d => negq <$> fromx86Arg d
+| x86Var.Instr.movq s d => movq <$> fromx86Arg s <*> fromx86Arg d
+| x86Var.Instr.pushq d => pushq <$> fromx86Arg d
+| x86Var.Instr.popq d => popq <$> fromx86Arg d
+| x86Var.Instr.callq lbl d => pure $ callq lbl d
+| x86Var.Instr.retq => pure retq
+| x86Var.Instr.jmp lbl => pure $ jmp lbl
+| x86Var.Instr.syscall => pure syscall
+
 end Pass
