@@ -80,40 +80,36 @@ instance : Into CVar.Atom x86Var.Arg where
   | CVar.Atom.var v => var v
 
 open CVar.Op x86Var.Arg in
-def x86VarFromCVarOp (dest : x86Var.Arg) : CVar.Op → List x86Var.Instr
-| CVar.Op.read =>
-  [ callq "read_int" 0
-  , movq (reg rax) dest
-  ]
-| add lhs rhs =>
-  [ movq (into lhs) (reg rax)
-  , addq (into rhs) (reg rax)
-  , movq (reg rax) dest
-  ]
-| sub lhs rhs =>
-  [ movq (into lhs) (reg rax)
-  , subq (into rhs) (reg rax)
-  , movq (reg rax) dest
-  ]
-| neg a =>
-  [ movq (into a) (reg rax)
-  , negq (reg rax)
-  , movq (reg rax) dest
-  ]
+@[inline]
+instance : Into CVar.Op (List x86Var.Instr) where
+  into
+  | CVar.Op.read => [callq "read_int" 0]
+  | add lhs rhs =>
+    [ movq (into lhs) (reg rax)
+    , addq (into rhs) (reg rax)
+    ]
+  | sub lhs rhs =>
+    [ movq (into lhs) (reg rax)
+    , subq (into rhs) (reg rax)
+    ]
+  | neg a =>
+    [ movq (into a) (reg rax)
+    , negq (reg rax)
+    ]
 
-open CVar.Stmt CVar.Exp x86Var.Arg in
+open CVar.Stmt CVar.Exp CVar.Op x86Var.Arg in
 @[inline]
 instance : Into CVar.Stmt (List x86Var.Instr) where
   into
   | assign name exp => match exp with
     | atm a => [movq (into a) (var name)]
-    | op o => x86VarFromCVarOp (var name) o
+    | op o => into o ++ [movq (reg rax) (var name)]
 
 open CVar.Tail CVar.Exp x86Var.Arg in
 def selectInstructions : CVar.Tail → List x86Var.Instr
 | ret e => match e with
   | atm a => [movq (into a) (reg rax)]
-  | op o => x86VarFromCVarOp (reg rax) o
+  | op o => into o
 | seq s t => into s ++ selectInstructions t
 
 open x86Int.Arg in
@@ -199,7 +195,7 @@ end Labels
   , Std.RBMap.ofList
     [ (Labels.prelude, ⟨prelude.concat (jmp Labels.main)⟩)
     , (Labels.main, ⟨xs.concat (jmp Labels.conclusion)⟩)
-    , (Labels.conclusion, ⟨conclusion ++ exit ++ [retq]⟩)
+    , (Labels.conclusion, ⟨conclusion ++ exit⟩)
     ]
     compare
   ⟩
