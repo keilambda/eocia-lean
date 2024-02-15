@@ -1,6 +1,5 @@
 import Std.Data.RBMap
 import EociaLean.Basic
-import EociaLean.IR.LVarMon
 
 namespace CVar
 
