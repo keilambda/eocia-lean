@@ -193,11 +193,13 @@ def conclusion : Label := "conclusion"
 end Labels
 
 @[inline] def preludeAndConclusion (frameSize : Int) (xs : List x86Int.Instr) : x86Int.Program :=
-    ⟨ Labels.prelude
+  let prelude := if frameSize = 0 then ∅ else allocate frameSize
+  let conclusion := if frameSize = 0 then ∅ else deallocate frameSize
+  ⟨ Labels.prelude
   , Std.RBMap.ofList
-    [ (Labels.prelude, ⟨allocate frameSize |>.concat (jmp Labels.main)⟩)
+    [ (Labels.prelude, ⟨prelude.concat (jmp Labels.main)⟩)
     , (Labels.main, ⟨xs.concat (jmp Labels.conclusion)⟩)
-    , (Labels.conclusion, ⟨deallocate frameSize ++ exit ++ [retq]⟩)
+    , (Labels.conclusion, ⟨conclusion ++ exit ++ [retq]⟩)
     ]
     compare
   ⟩
