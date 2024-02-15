@@ -157,4 +157,35 @@ def patchInstructions (xs : List x86Int.Instr) : List x86Int.Instr := concatMap 
   | _ => [i]
 | i@(negq _) | i@(pushq _) | i@(popq _) | i@(callq _ _) | i@(retq) | i@(jmp _) | i@(syscall) => [i]
 
+open x86Int.Instr x86Int.Arg in
+@[inline] def allocate (size : Int) : List x86Int.Instr :=
+  [ pushq (reg rbp)
+  , movq (reg rsp) (reg rbp)
+  , subq (imm size) (reg rsp)
+  ]
+
+open x86Int.Instr x86Int.Arg in
+@[inline] def deallocate (size : Int) : List x86Int.Instr :=
+  [ addq (imm size) (reg rsp)
+  , popq (reg rbp)
+  ]
+
+open x86Int.Instr x86Int.Arg in
+@[inline] def exit : List x86Int.Instr :=
+  [ movq (imm 60) (reg rax)
+  , movq (imm 0) (reg rdi)
+  , syscall
+  ]
+
+open x86Int.Instr in
+@[inline] def preludeAndConclusion (frameSize : Int) (xs : List x86Int.Instr) : x86Int.Program :=
+  ⟨ Labels.prelude
+  , Std.RBMap.ofList
+    [ (Labels.prelude, ⟨allocate frameSize |>.concat (jmp Labels.main)⟩)
+    , (Labels.main, ⟨xs.concat (jmp Labels.conclusion)⟩)
+    , (Labels.conclusion, ⟨deallocate frameSize ++ exit ++ [retq]⟩)
+    ]
+    compare
+  ⟩
+
 end Pass

@@ -71,43 +71,12 @@ structure Block : Type where
 instance : ToString Block where
   toString b := b.instructions.foldl (λ acc i => s!"{acc}\t{i}\n") default
 
-structure x86Int : Type where
+structure Program : Type where
   mk :: (globl : Label) (blocks : Std.RBMap Label Block compare)
 
-instance : ToString x86Int where
+instance : ToString Program where
   toString p := s!".globl {p.globl}\n{p.blocks.foldl build default}"
   where
   build acc lbl block := s!"{acc}{lbl}:\n{block}"
-
-open Instr Arg in
-@[inline] def allocate (size : Int) : List Instr :=
-  [ pushq (reg rbp)
-  , movq (reg rsp) (reg rbp)
-  , subq (imm size) (reg rsp)
-  ]
-
-open Instr Arg in
-@[inline] def deallocate (size : Int) : List Instr :=
-  [ addq (imm size) (reg rsp)
-  , popq (reg rbp)
-  ]
-
-open Instr Arg in
-@[inline] def exit : List Instr :=
-  [ movq (imm 60) (reg rax)
-  , movq (imm 0) (reg rdi)
-  , syscall
-  ]
-
-open Instr in
-@[inline] def generatePreludeAndConclusion (frameSize : Int) (xs : List Instr) : x86Int :=
-  ⟨ Labels.prelude
-  , Std.RBMap.ofList
-    [ (Labels.prelude, ⟨allocate frameSize |>.concat (jmp Labels.main)⟩)
-    , (Labels.main, ⟨xs.concat (jmp Labels.conclusion)⟩)
-    , (Labels.conclusion, ⟨deallocate frameSize ++ exit ++ [retq]⟩)
-    ]
-    compare
-  ⟩
 
 end x86Int
