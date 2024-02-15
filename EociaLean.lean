@@ -8,7 +8,7 @@ import EociaLean.IR.x86Int
 import EociaLean.IR.x86Var
 
 namespace Pass
-open x86.Reg
+open x86.Instr x86.Reg
 
 abbrev LVarMonState : Type := LVarMon.Env × Nat
 
@@ -73,7 +73,7 @@ open x86Var.Arg in
 | CVar.Atom.int i => imm i
 | CVar.Atom.var v => var v
 
-open CVar.Op x86Var.Instr x86Var.Arg in
+open CVar.Op x86Var.Arg in
 def fromCVarOp (dest : x86Var.Arg) : CVar.Op → List x86Var.Instr
 | CVar.Op.read =>
   [ callq "read_int" 0
@@ -95,13 +95,13 @@ def fromCVarOp (dest : x86Var.Arg) : CVar.Op → List x86Var.Instr
   , movq (reg rax) dest
   ]
 
-open CVar.Stmt CVar.Exp x86Var.Instr x86Var.Arg in
+open CVar.Stmt CVar.Exp x86Var.Arg in
 @[inline] def fromCVarStmt : CVar.Stmt → List x86Var.Instr
 | assign name exp => match exp with
   | atm a => [movq (fromCVarAtom a) (var name)]
   | op o => fromCVarOp (var name) o
 
-open CVar.Tail CVar.Exp x86Var.Instr x86Var.Arg in
+open CVar.Tail CVar.Exp x86Var.Arg in
 def selectInstructions : CVar.Tail → List x86Var.Instr
 | ret e => match e with
   | atm a => [movq (fromCVarAtom a) (reg rax)]
@@ -122,20 +122,19 @@ def fromx86Arg : x86Var.Arg → StateM x86Int.Frame x86Int.Arg
 | x86Var.Arg.reg r => pure (reg r)
 | x86Var.Arg.deref a b => (deref · b) <$> fromx86Arg a
 
-open x86Int.Instr in
 def assignHomes (xs : List x86Var.Instr) : StateM x86Int.Frame (List x86Int.Instr) := xs.traverse λ
-| x86Var.Instr.addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
-| x86Var.Instr.subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
-| x86Var.Instr.negq d => negq <$> fromx86Arg d
-| x86Var.Instr.movq s d => movq <$> fromx86Arg s <*> fromx86Arg d
-| x86Var.Instr.pushq d => pushq <$> fromx86Arg d
-| x86Var.Instr.popq d => popq <$> fromx86Arg d
-| x86Var.Instr.callq lbl d => pure $ callq lbl d
-| x86Var.Instr.retq => pure retq
-| x86Var.Instr.jmp lbl => pure $ jmp lbl
-| x86Var.Instr.syscall => pure syscall
+| addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
+| subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
+| negq d => negq <$> fromx86Arg d
+| movq s d => movq <$> fromx86Arg s <*> fromx86Arg d
+| pushq d => pushq <$> fromx86Arg d
+| popq d => popq <$> fromx86Arg d
+| callq lbl d => pure $ callq lbl d
+| retq => pure retq
+| jmp lbl => pure $ jmp lbl
+| syscall => pure syscall
 
-open x86Int.Instr x86Int.Arg in
+open x86Int.Arg in
 def patchInstructions (xs : List x86Int.Instr) : List x86Int.Instr := concatMap xs λ
 | i@(addq s d) => match (s, d) with
   | (deref la lb, deref ra rb) =>
@@ -157,27 +156,34 @@ def patchInstructions (xs : List x86Int.Instr) : List x86Int.Instr := concatMap 
   | _ => [i]
 | i@(negq _) | i@(pushq _) | i@(popq _) | i@(callq _ _) | i@(retq) | i@(jmp _) | i@(syscall) => [i]
 
-open x86Int.Instr x86Int.Arg in
+open x86Int.Arg in
 @[inline] def allocate (size : Int) : List x86Int.Instr :=
   [ pushq (reg rbp)
   , movq (reg rsp) (reg rbp)
   , subq (imm size) (reg rsp)
   ]
 
-open x86Int.Instr x86Int.Arg in
+open x86Int.Arg in
 @[inline] def deallocate (size : Int) : List x86Int.Instr :=
   [ addq (imm size) (reg rsp)
   , popq (reg rbp)
   ]
 
-open x86Int.Instr x86Int.Arg in
+open x86Int.Arg in
 @[inline] def exit : List x86Int.Instr :=
-  [ movq (imm 60) (reg rax)
+  [ movq (imm x86.SysV.sys_exit) (reg rax)
   , movq (imm 0) (reg rdi)
   , syscall
   ]
 
-open x86Int.Instr in
+namespace Labels
+
+def main : Label := "main"
+def prelude : Label := "_start"
+def conclusion : Label := "conclusion"
+
+end Labels
+
 @[inline] def preludeAndConclusion (frameSize : Int) (xs : List x86Int.Instr) : x86Int.Program :=
   ⟨ Labels.prelude
   , Std.RBMap.ofList

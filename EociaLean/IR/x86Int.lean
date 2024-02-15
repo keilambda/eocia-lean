@@ -1,7 +1,6 @@
 import Std.Data.RBMap
 import EociaLean.Basic
 import EociaLean.IR.x86
-import EociaLean.IR.x86Var
 
 namespace x86Int
 open x86.Reg
@@ -26,18 +25,7 @@ instance : ToString Arg where
 
 end Arg
 
-inductive Instr : Type
-| addq : Arg → Arg → Instr
-| subq : Arg → Arg → Instr
-| negq : Arg → Instr
-| movq : Arg → Arg → Instr
-| pushq : Arg → Instr
-| popq : Arg → Instr
-| callq : Label → Int → Instr
-| retq : Instr
-| jmp : Label → Instr
-| syscall : Instr
-deriving Repr
+abbrev Instr : Type := x86.Instr Arg
 
 structure Frame : Type where
   mk :: (env : Std.RBMap Var Arg compare) (offset : Int)
@@ -46,24 +34,6 @@ deriving Repr, Inhabited
 @[inline] def Frame.frameSize (h : Frame) : Int :=
   let n := h.offset.neg
   (n % 16) + n -- align to be a multiple of 16
-
-namespace Instr
-open Arg
-
-instance : ToString Instr where
-  toString
-  | addq s d => s!"addq {s}, {d}"
-  | subq s d => s!"subq {s}, {d}"
-  | negq d => s!"negq {d}"
-  | movq s d => s!"movq {s}, {d}"
-  | pushq d => s!"pushq {d}"
-  | popq d => s!"popq {d}"
-  | callq lbl d => s!"callq {lbl}, {d}"
-  | retq => "retq"
-  | jmp lbl => s!"jmp {lbl}"
-  | syscall => "syscall"
-
-end Instr
 
 structure Block : Type where
   mk :: (instructions : List Instr)
