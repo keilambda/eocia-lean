@@ -1,7 +1,6 @@
 import Std.Data.RBMap
 import EociaLean.Basic
 import EociaLean.IR.x86
-import EociaLean.IR.CVar
 
 namespace x86Var
 
@@ -41,7 +40,7 @@ inductive Instr : Type
 deriving Repr
 
 namespace Instr
-open x86.Reg Arg
+open Arg
 
 instance : ToString Instr where
   toString
@@ -55,47 +54,6 @@ instance : ToString Instr where
   | retq => "retq"
   | jmp lbl => s!"jmp {lbl}"
   | syscall => "syscall"
-
-@[inline] def fromCVarAtom : CVar.Atom → Arg
-| CVar.Atom.int i => imm i
-| CVar.Atom.var v => var v
-
-open CVar.Op in
-def fromCVarOp (dest : Arg) : CVar.Op → List Instr
-| CVar.Op.read =>
-  [ callq "read_int" 0
-  , movq (reg rax) dest
-  ]
-| add lhs rhs =>
-  [ movq (fromCVarAtom lhs) (reg rax)
-  , addq (fromCVarAtom rhs) (reg rax)
-  , movq (reg rax) dest
-  ]
-| sub lhs rhs =>
-  [ movq (fromCVarAtom lhs) (reg rax)
-  , subq (fromCVarAtom rhs) (reg rax)
-  , movq (reg rax) dest
-  ]
-| neg a =>
-  [ movq (fromCVarAtom a) (reg rax)
-  , negq (reg rax)
-  , movq (reg rax) dest
-  ]
-
-open CVar.Stmt CVar.Exp in
-@[inline] def fromCVarStmt : CVar.Stmt → List Instr
-| assign name exp => match exp with
-  | atm a => [movq (fromCVarAtom a) (var name)]
-  | op o => fromCVarOp (var name) o
-
-open CVar.Tail CVar.Exp in
-def fromCVarTail : CVar.Tail → List Instr
-| ret e => match e with
-  | atm a => [movq (fromCVarAtom a) (reg rax)]
-  | op o => fromCVarOp (reg rax) o
-| seq s t => fromCVarStmt s ++ fromCVarTail t
-
-abbrev selectInstructions := fromCVarTail
 
 end Instr
 

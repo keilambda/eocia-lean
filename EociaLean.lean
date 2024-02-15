@@ -8,6 +8,7 @@ import EociaLean.IR.x86Int
 import EociaLean.IR.x86Var
 
 namespace Pass
+open x86.Reg
 
 abbrev LVarMonState : Type := LVarMon.Env × Nat
 
@@ -66,5 +67,45 @@ def explicateControl : LVarMon.Exp → CVar.Tail
 | LVarMon.Exp.let_ name val body => explicateAssign name val (explicateControl body)
 | LVarMon.Exp.atm a => ret ∘ atm ∘ fromLVarMonAtom $ a
 | LVarMon.Exp.op o => ret ∘ op ∘ fromLVarMonOp $ o
+
+open x86Var.Arg in
+@[inline] def fromCVarAtom : CVar.Atom → x86Var.Arg
+| CVar.Atom.int i => imm i
+| CVar.Atom.var v => var v
+
+open CVar.Op x86Var.Instr x86Var.Arg in
+def fromCVarOp (dest : x86Var.Arg) : CVar.Op → List x86Var.Instr
+| CVar.Op.read =>
+  [ callq "read_int" 0
+  , movq (reg rax) dest
+  ]
+| add lhs rhs =>
+  [ movq (fromCVarAtom lhs) (reg rax)
+  , addq (fromCVarAtom rhs) (reg rax)
+  , movq (reg rax) dest
+  ]
+| sub lhs rhs =>
+  [ movq (fromCVarAtom lhs) (reg rax)
+  , subq (fromCVarAtom rhs) (reg rax)
+  , movq (reg rax) dest
+  ]
+| neg a =>
+  [ movq (fromCVarAtom a) (reg rax)
+  , negq (reg rax)
+  , movq (reg rax) dest
+  ]
+
+open CVar.Stmt CVar.Exp x86Var.Instr x86Var.Arg in
+@[inline] def fromCVarStmt : CVar.Stmt → List x86Var.Instr
+| assign name exp => match exp with
+  | atm a => [movq (fromCVarAtom a) (var name)]
+  | op o => fromCVarOp (var name) o
+
+open CVar.Tail CVar.Exp x86Var.Instr x86Var.Arg in
+def selectInstructions : CVar.Tail → List x86Var.Instr
+| ret e => match e with
+  | atm a => [movq (fromCVarAtom a) (reg rax)]
+  | op o => fromCVarOp (reg rax) o
+| seq s t => fromCVarStmt s ++ selectInstructions t
 
 end Pass
