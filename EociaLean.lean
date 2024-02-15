@@ -43,4 +43,28 @@ where
 @[inline] gensym : StateM LVarMonState Var := getModify (·.map id Nat.succ) <&> (s!"%{·.2}")
 @[inline] addvar k v : StateM LVarMonState Unit := modify (·.map (·.insert k v) id)
 
+open CVar.Atom in
+@[inline] def fromLVarMonAtom : LVarMon.Atom → CVar.Atom
+| LVarMon.Atom.int i => int i
+| LVarMon.Atom.var v => var v
+
+open CVar.Op in
+def fromLVarMonOp : LVarMon.Op → CVar.Op
+| LVarMon.Op.read => read
+| LVarMon.Op.add lhs rhs => add (fromLVarMonAtom lhs) (fromLVarMonAtom rhs)
+| LVarMon.Op.sub lhs rhs => sub (fromLVarMonAtom lhs) (fromLVarMonAtom rhs)
+| LVarMon.Op.neg e => neg (fromLVarMonAtom e)
+
+open CVar.Tail CVar.Stmt CVar.Exp in
+def explicateAssign (name : Var) (exp : LVarMon.Exp) (acc : CVar.Tail) : CVar.Tail := match exp with
+| LVarMon.Exp.let_ name' val body => explicateAssign name' val (explicateAssign name body acc)
+| LVarMon.Exp.atm a => seq (assign name (atm ∘ fromLVarMonAtom $ a)) acc
+| LVarMon.Exp.op o => seq (assign name (op ∘ fromLVarMonOp $ o)) acc
+
+open CVar.Tail CVar.Exp in
+def explicateControl : LVarMon.Exp → CVar.Tail
+| LVarMon.Exp.let_ name val body => explicateAssign name val (explicateControl body)
+| LVarMon.Exp.atm a => ret ∘ atm ∘ fromLVarMonAtom $ a
+| LVarMon.Exp.op o => ret ∘ op ∘ fromLVarMonOp $ o
+
 end Pass
