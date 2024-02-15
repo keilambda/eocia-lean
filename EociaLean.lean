@@ -193,7 +193,7 @@ def conclusion : Label := "conclusion"
 end Labels
 
 @[inline] def preludeAndConclusion (frameSize : Int) (xs : List x86Int.Instr) : x86Int.Program :=
-  ⟨ Labels.prelude
+    ⟨ Labels.prelude
   , Std.RBMap.ofList
     [ (Labels.prelude, ⟨allocate frameSize |>.concat (jmp Labels.main)⟩)
     , (Labels.main, ⟨xs.concat (jmp Labels.conclusion)⟩)
@@ -204,8 +204,8 @@ end Labels
 
 def compile (p : LVar.Program) : x86Int.Program :=
   p.exp
-  |>.uniquify |>.run' (∅, 0) |>.run
-  |> removeComplexOperands |>.run' (∅, 0) |>.run
+  |>.uniquify |>.run (∅, 0) |>.run
+  |> λ (exp, (_, n)) => removeComplexOperands exp |>.run' (∅, n) |>.run
   |> explicateControl
   |> selectInstructions
   |> assignHomes |>.run ⟨∅, 0⟩ |>.run
