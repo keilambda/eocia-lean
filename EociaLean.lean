@@ -45,71 +45,79 @@ where
 @[inline] addvar k v : StateM LVarMonState Unit := modify (·.map (·.insert k v) id)
 
 open CVar.Atom in
-@[inline] def fromLVarMonAtom : LVarMon.Atom → CVar.Atom
-| LVarMon.Atom.int i => int i
-| LVarMon.Atom.var v => var v
+@[inline]
+instance : Into LVarMon.Atom CVar.Atom where
+  into
+  | LVarMon.Atom.int i => int i
+  | LVarMon.Atom.var v => var v
 
 open CVar.Op in
-def fromLVarMonOp : LVarMon.Op → CVar.Op
-| LVarMon.Op.read => read
-| LVarMon.Op.add lhs rhs => add (fromLVarMonAtom lhs) (fromLVarMonAtom rhs)
-| LVarMon.Op.sub lhs rhs => sub (fromLVarMonAtom lhs) (fromLVarMonAtom rhs)
-| LVarMon.Op.neg e => neg (fromLVarMonAtom e)
+@[inline]
+instance : Into LVarMon.Op CVar.Op where
+  into
+  | LVarMon.Op.read => read
+  | LVarMon.Op.add lhs rhs => add (into lhs) (into rhs)
+  | LVarMon.Op.sub lhs rhs => sub (into lhs) (into rhs)
+  | LVarMon.Op.neg e => neg (into e)
 
 open CVar.Tail CVar.Stmt CVar.Exp in
 def explicateAssign (name : Var) (exp : LVarMon.Exp) (acc : CVar.Tail) : CVar.Tail := match exp with
 | LVarMon.Exp.let_ name' val body => explicateAssign name' val (explicateAssign name body acc)
-| LVarMon.Exp.atm a => seq (assign name (atm ∘ fromLVarMonAtom $ a)) acc
-| LVarMon.Exp.op o => seq (assign name (op ∘ fromLVarMonOp $ o)) acc
+| LVarMon.Exp.atm a => seq (assign name (atm ∘ into $ a)) acc
+| LVarMon.Exp.op o => seq (assign name (op ∘ into $ o)) acc
 
 open CVar.Tail CVar.Exp in
 def explicateControl : LVarMon.Exp → CVar.Tail
 | LVarMon.Exp.let_ name val body => explicateAssign name val (explicateControl body)
-| LVarMon.Exp.atm a => ret ∘ atm ∘ fromLVarMonAtom $ a
-| LVarMon.Exp.op o => ret ∘ op ∘ fromLVarMonOp $ o
+| LVarMon.Exp.atm a => ret ∘ atm ∘ into $ a
+| LVarMon.Exp.op o => ret ∘ op ∘ into $ o
 
 open x86Var.Arg in
-@[inline] def fromCVarAtom : CVar.Atom → x86Var.Arg
-| CVar.Atom.int i => imm i
-| CVar.Atom.var v => var v
+@[inline]
+instance : Into CVar.Atom x86Var.Arg where
+  into
+  | CVar.Atom.int i => imm i
+  | CVar.Atom.var v => var v
 
 open CVar.Op x86Var.Arg in
-def fromCVarOp (dest : x86Var.Arg) : CVar.Op → List x86Var.Instr
+def x86VarFromCVarOp (dest : x86Var.Arg) : CVar.Op → List x86Var.Instr
 | CVar.Op.read =>
   [ callq "read_int" 0
   , movq (reg rax) dest
   ]
 | add lhs rhs =>
-  [ movq (fromCVarAtom lhs) (reg rax)
-  , addq (fromCVarAtom rhs) (reg rax)
+  [ movq (into lhs) (reg rax)
+  , addq (into rhs) (reg rax)
   , movq (reg rax) dest
   ]
 | sub lhs rhs =>
-  [ movq (fromCVarAtom lhs) (reg rax)
-  , subq (fromCVarAtom rhs) (reg rax)
+  [ movq (into lhs) (reg rax)
+  , subq (into rhs) (reg rax)
   , movq (reg rax) dest
   ]
 | neg a =>
-  [ movq (fromCVarAtom a) (reg rax)
+  [ movq (into a) (reg rax)
   , negq (reg rax)
   , movq (reg rax) dest
   ]
 
 open CVar.Stmt CVar.Exp x86Var.Arg in
-@[inline] def fromCVarStmt : CVar.Stmt → List x86Var.Instr
-| assign name exp => match exp with
-  | atm a => [movq (fromCVarAtom a) (var name)]
-  | op o => fromCVarOp (var name) o
+@[inline]
+instance : Into CVar.Stmt (List x86Var.Instr) where
+  into
+  | assign name exp => match exp with
+    | atm a => [movq (into a) (var name)]
+    | op o => x86VarFromCVarOp (var name) o
 
 open CVar.Tail CVar.Exp x86Var.Arg in
 def selectInstructions : CVar.Tail → List x86Var.Instr
 | ret e => match e with
-  | atm a => [movq (fromCVarAtom a) (reg rax)]
-  | op o => fromCVarOp (reg rax) o
-| seq s t => fromCVarStmt s ++ selectInstructions t
+  | atm a => [movq (into a) (reg rax)]
+  | op o => x86VarFromCVarOp (reg rax) o
+| seq s t => into s ++ selectInstructions t
 
 open x86Int.Arg in
-def fromx86Arg : x86Var.Arg → StateM x86Int.Frame x86Int.Arg
+def x86VarEliminateVar : x86Var.Arg → StateM x86Int.Frame x86Int.Arg
 | x86Var.Arg.var name => do
   let ⟨env, offset⟩ ← get
   match env.find? name with
@@ -120,15 +128,15 @@ def fromx86Arg : x86Var.Arg → StateM x86Int.Frame x86Int.Arg
     pure $ deref (imm offset') rbp
 | x86Var.Arg.imm i => pure (imm i)
 | x86Var.Arg.reg r => pure (reg r)
-| x86Var.Arg.deref a b => (deref · b) <$> fromx86Arg a
+| x86Var.Arg.deref a b => (deref · b) <$> x86VarEliminateVar a
 
 def assignHomes (xs : List x86Var.Instr) : StateM x86Int.Frame (List x86Int.Instr) := xs.traverse λ
-| addq s d => addq <$> fromx86Arg s <*> fromx86Arg d
-| subq s d => subq <$> fromx86Arg s <*> fromx86Arg d
-| negq d => negq <$> fromx86Arg d
-| movq s d => movq <$> fromx86Arg s <*> fromx86Arg d
-| pushq d => pushq <$> fromx86Arg d
-| popq d => popq <$> fromx86Arg d
+| addq s d => addq <$> x86VarEliminateVar s <*> x86VarEliminateVar d
+| subq s d => subq <$> x86VarEliminateVar s <*> x86VarEliminateVar d
+| negq d => negq <$> x86VarEliminateVar d
+| movq s d => movq <$> x86VarEliminateVar s <*> x86VarEliminateVar d
+| pushq d => pushq <$> x86VarEliminateVar d
+| popq d => popq <$> x86VarEliminateVar d
 | callq lbl d => pure $ callq lbl d
 | retq => pure retq
 | jmp lbl => pure $ jmp lbl
