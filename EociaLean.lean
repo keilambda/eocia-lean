@@ -42,60 +42,60 @@ where
 @[inline] gensym : StateM LVarMonState Var := getModify (·.map id Nat.succ) <&> (s!"%{·.2}")
 @[inline] addvar k v : StateM LVarMonState Unit := modify (·.map (·.insert k v) id)
 
-instance : Into LVarMon.Atom CVar.Atom where
-  into
+instance : Coe LVarMon.Atom CVar.Atom where
+  coe
   | .int i => .int i
   | .var v => .var v
 
-instance : Into LVarMon.Op CVar.Op where
-  into
+instance : Coe LVarMon.Op CVar.Op where
+  coe
   | .read => .read
-  | .add lhs rhs => .add (into lhs) (into rhs)
-  | .sub lhs rhs => .sub (into lhs) (into rhs)
-  | .neg e => .neg (into e)
+  | .add lhs rhs => .add lhs rhs
+  | .sub lhs rhs => .sub lhs rhs
+  | .neg e => .neg e
 
 def explicateAssign (name : Var) (exp : LVarMon.Exp) (acc : CVar.Tail) : CVar.Tail := match exp with
 | .let_ name' val body => explicateAssign name' val (explicateAssign name body acc)
-| .atm a => .seq (.assign name (.atm ∘ into $ a)) acc
-| .op o => .seq (.assign name (.op ∘ into $ o)) acc
+| .atm a => .seq (.assign name (.atm a)) acc
+| .op o => .seq (.assign name (.op o)) acc
 
 def explicateControl : LVarMon.Exp → CVar.Tail
 | .let_ name val body => explicateAssign name val (explicateControl body)
-| .atm a => .ret ∘ .atm ∘ into $ a
-| .op o => .ret ∘ .op ∘ into $ o
+| .atm a => .ret (.atm a)
+| .op o => .ret (.op o)
 
-instance : Into CVar.Atom x86Var.Arg where
-  into
+instance : Coe CVar.Atom x86Var.Arg where
+  coe
   | .int i => .imm i
   | .var v => .var v
 
-instance : Into CVar.Op (List x86Var.Instr) where
-  into
+instance : Coe CVar.Op (List x86Var.Instr) where
+  coe
   | .read => [.callq "read_int" 0]
   | .add lhs rhs =>
-    [ .movq (into lhs) (.reg .rax)
-    , .addq (into rhs) (.reg .rax)
+    [ .movq lhs (.reg .rax)
+    , .addq rhs (.reg .rax)
     ]
   | .sub lhs rhs =>
-    [ .movq (into lhs) (.reg .rax)
-    , .subq (into rhs) (.reg .rax)
+    [ .movq lhs (.reg .rax)
+    , .subq rhs (.reg .rax)
     ]
   | .neg a =>
-    [ .movq (into a) (.reg .rax)
+    [ .movq a (.reg .rax)
     , .negq (.reg .rax)
     ]
 
-instance : Into CVar.Stmt (List x86Var.Instr) where
-  into
+instance : Coe CVar.Stmt (List x86Var.Instr) where
+  coe
   | .assign name exp => match exp with
-    | .atm a => [.movq (into a) (.var name)]
-    | .op o => into o ++ [.movq (.reg .rax) (.var name)]
+    | .atm a => [.movq a (.var name)]
+    | .op o => ↑o ++ [.movq (.reg .rax) (.var name)]
 
 def selectInstructions : CVar.Tail → List x86Var.Instr
 | .ret e => match e with
-  | .atm a => [.movq (into a) (.reg .rax)]
-  | .op o => into o
-| .seq s t => into s ++ selectInstructions t
+  | .atm a => [.movq a (.reg .rax)]
+  | .op o => o
+| .seq s t => s ++ selectInstructions t
 
 def x86VarEliminateVar : x86Var.Arg → StateM x86Int.Frame x86Int.Arg
 | .var name => do

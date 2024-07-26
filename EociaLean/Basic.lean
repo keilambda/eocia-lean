@@ -5,8 +5,3 @@ def gensym : StateM Nat Var := getModify Nat.succ <&> (s!"%{·}")
 
 def concatMap {α : Type u} (xs : List α) (f : α → List β) : List β :=
   xs.foldr (λ x acc => f x ++ acc) []
-
-class Into (α β : Type) where
-  into : α → β
-
-export Into (into)
