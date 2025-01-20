@@ -1,4 +1,4 @@
-import Std.Data.RBMap
+import Batteries.Data.RBMap
 import EociaLean.Basic
 
 namespace CVar
@@ -67,7 +67,7 @@ inductive Tail : Type
 | seq : Stmt → Tail → Tail
 deriving Repr
 
-abbrev Env : Type := Std.RBMap Var Exp compare
+abbrev Env : Type := Batteries.RBMap Var Exp compare
 
 namespace Tail
 open Stmt Exp Op Atom
@@ -82,6 +82,6 @@ instance : ToString Tail where
 end Tail
 
 structure CVar : Type where
-  mk :: (env : Env) (blocks : Std.RBMap Label Tail compare)
+  mk :: (env : Env) (blocks : Batteries.RBMap Label Tail compare)
 
 end CVar

@@ -1,4 +1,4 @@
-import Std.Data.RBMap
+import Batteries.Data.RBMap
 import EociaLean.Basic
 import EociaLean.IR.x86
 
@@ -28,7 +28,7 @@ end Arg
 
 abbrev Instr : Type := x86.Instr Arg
 
-abbrev Env : Type := Std.RBMap Var Int compare
+abbrev Env : Type := Batteries.RBMap Var Int compare
 
 structure Block : Type where
   mk :: (env : Env) (instructions : List Instr)
@@ -37,7 +37,7 @@ instance : ToString Block where
   toString b := b.instructions.foldl (λ acc i => s!"{acc}\t{i}\n") default
 
 structure x86Var : Type where
-  mk :: (env : Env) (globl : Label) (blocks : Std.RBMap Label Block compare)
+  mk :: (env : Env) (globl : Label) (blocks : Batteries.RBMap Label Block compare)
 
 instance : ToString x86Var where
   toString p := s!".globl {p.globl}\n{p.blocks.foldl build default}"

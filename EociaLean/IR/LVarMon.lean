@@ -1,4 +1,4 @@
-import Std.Data.RBMap
+import Batteries.Data.RBMap
 import EociaLean.Basic
 
 namespace LVarMon
@@ -41,7 +41,7 @@ inductive Exp : Type
 | op : Op → Exp
 deriving Repr
 
-abbrev Env : Type := Std.RBMap Var Exp compare
+abbrev Env : Type := Batteries.RBMap Var Exp compare
 
 namespace Exp
 open Atom Op

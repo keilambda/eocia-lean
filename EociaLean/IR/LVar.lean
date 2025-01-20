@@ -1,4 +1,4 @@
-import Std.Data.RBMap
+import Batteries.Data.RBMap
 import EociaLean.Basic
 
 namespace LVar
@@ -20,7 +20,7 @@ inductive Op : Type
 deriving Repr
 end
 
-abbrev Env : Type := Std.RBMap Var Exp compare
+abbrev Env : Type := Batteries.RBMap Var Exp compare
 
 mutual
 open Exp Op
